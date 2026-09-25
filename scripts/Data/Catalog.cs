@@ -232,19 +232,19 @@ public static class Catalog
 
 	public static readonly ResearchDef[] Research =
 	{
-		new("slowing", "Slowing Bolts", "Ballista", new[] { 1000, 2200, 4500 }, new[] { 1, 8, 16 }, null,
+		new("slowing", "Slowing Bolts", "Ballista", new[] { 1000, 2200, 4500 }, new[] { 5, 15, 30 }, null,
 			l => $"Ballista hits slow by {SlowPerLevel * l * 100:0}% for {SlowDuration}s. Doesn't stack; bosses half."),
-		new("splitting", "Splitting Bolts", "Ballista", new[] { 1200, 2600, 5200 }, new[] { 1, 8, 16 }, null,
+		new("splitting", "Splitting Bolts", "Ballista", new[] { 1200, 2600, 5200 }, new[] { 5, 15, 30 }, null,
 			l => $"Bolts bounce to {l} more target{(l > 1 ? "s" : "")} for {SplitDamage * 100:0}% damage. Armour applies; bosses half."),
-		new("incendiary", "Incendiary Shells", "Cannon", new[] { 1200, 2600, 5200 }, new[] { 4, 12, 20 }, null,
+		new("incendiary", "Incendiary Shells", "Cannon", new[] { 1200, 2600, 5200 }, new[] { 5, 15, 30 }, null,
 			l => $"Cannon hits burn for {BurnPerLevel * l * 100:0}% of hit damage per second ({BurnDuration}s). Ignores armour, stops regeneration."),
-		new("shrapnel", "Shrapnel", "Cannon", new[] { 1000, 2200, 4500 }, new[] { 4, 12, 20 }, null,
+		new("shrapnel", "Shrapnel", "Cannon", new[] { 1000, 2200, 4500 }, new[] { 5, 15, 30 }, null,
 			l => $"Cannon splash radius +{ShrapnelPerLevel * l * 100:0}%. Best against swarms."),
-		new("boulders", "Heavy Boulders", "Catapult", new[] { 1200, 2600, 5200 }, new[] { 4, 12, 20 }, null,
+		new("boulders", "Heavy Boulders", "Catapult", new[] { 1200, 2600, 5200 }, new[] { 5, 15, 30 }, null,
 			l => $"Creeps hit by a catapult take +{Vulnerability[l] * 100:0}% damage from every tower for {VulnerableDuration}s. Works fully on bosses."),
-		new("scatter", "Scatter Shot", "Catapult", new[] { 1500, 3000, 6000 }, new[] { 10, 18, 26 }, null,
+		new("scatter", "Scatter Shot", "Catapult", new[] { 1500, 3000, 6000 }, new[] { 10, 20, 30 }, null,
 			l => $"Catapults can hit flyers for {ScatterAirDamage[l] * 100:0}% damage."),
-		new("warchest", "War Chest", "Economy", new[] { 1500, 3500, 7000 }, new[] { 1, 6, 12 }, null,
+		new("warchest", "War Chest", "Economy", new[] { 1500, 3500, 7000 }, new[] { 5, 15, 30 }, null,
 			l => $"Earn {WarChestRate[l] * 100:0}% interest on banked gold each wave (capped at 500 + 250 × wave)."),
 	};
 
