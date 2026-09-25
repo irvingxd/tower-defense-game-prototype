@@ -216,7 +216,7 @@ public static class Catalog
 	// ground boss-killer.
 	public const float BossEffect = 0.5f;
 	public const float SlowPerLevel = 0.10f, SlowDuration = 1.5f;
-	public const float SplitDamage = 0.5f, SplitRange = 1.3f;
+	public const float SplitDamage = 0.33f, SplitRange = 1.3f;
 	public const float BurnPerLevel = 0.15f, BurnDuration = 3f; // burn dps as a fraction of the hit
 	public const float ShrapnelPerLevel = 0.15f;                 // cannon splash radius
 	static readonly float[] Vulnerability = { 0f, 0.08f, 0.14f, 0.20f }; // extra damage taken from everything

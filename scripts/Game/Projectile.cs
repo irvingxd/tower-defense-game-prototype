@@ -69,7 +69,7 @@ public partial class Projectile : Node3D
 		if (Vulnerable > 0) e.ApplyVulnerable(Vulnerable, Catalog.VulnerableDuration);
 	}
 
-	// Splitting Bolts: a half-damage bolt to each of the nearest other creeps. Bounces don't bounce again.
+	// Splitting Bolts: a reduced-damage bolt (SplitDamage) to each of the nearest other creeps. Bounces don't bounce again.
 	void Bounce()
 	{
 		var from = new Vector3(_aim.X, 0, _aim.Z);
