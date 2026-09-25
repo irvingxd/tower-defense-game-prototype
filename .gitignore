@@ -1,0 +1,14 @@
+# Godot
+.godot/
+*.tmp
+mono_crash.*
+
+# .NET build output
+bin/
+obj/
+*.user
+.vs/
+.vscode/
+
+# Dev tool output
+autoshot/
