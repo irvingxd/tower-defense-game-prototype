@@ -2,8 +2,9 @@
 
 At the level 4 → 5 milestone you pick one of two **branches**; at 9 → 10 one of two **specialisations**
 within it. With a fourth tower that is 4 towers × 2 × 2 = **16 end-forms**. The milestone's ×2 / ×3 damage
-and cost rules stay; branches reshape *how* the damage is dealt. Damage per gold stays roughly flat (±15%):
-each form is stronger in its niche and weaker outside it, never simply better.
+and cost rules stay; branches reshape *how* the damage is dealt. Milestones pay more than they cost (4 → 5
+is ×2 damage for +70% of the investment, 9 → 10 is ×3 for +160%), so committing to a tower is rewarded;
+between branches damage per gold stays roughly even (±15%): each form is stronger in its niche, never simply better.
 
 ![Tower branch previews](tower-branches.png)
 
@@ -48,13 +49,14 @@ branch B (L5) · B1 · B2 (L10). Numbers below are multipliers on the unbranched
 | ↳ **Barrage** | 10 | 5 boulders per volley | Swarms / flyers |
 | ↳ **Avalanche** | 10 | Boulders roll 2 tiles along the path after landing, hitting creeps behind | Long lines of creeps / sparse waves |
 
-## Crystal Tower (new, 1,500g)
-Magic bolts that ignore half of armour and hit flyers, medium range, moderate damage. The level-5 choice
+## Crystal Tower (1,300g, late bloomer)
+Magic bolts that ignore half of armour and hit flyers, medium range. It starts weak (20 damage) but grows
++35% per level instead of +25%, so it is the best scaler: behind the Ballista at level 1, ahead from level 9. The level-5 choice
 **attunes** it to an element; the crystal glows red or ice-blue.
 
 | Form | Level | Stats | Excels / Weak |
 |---|---|---|---|
-| **Fire** | 5 | Hits burn for 40% of the hit per second (3 s); burning stops regeneration | Regen, swarms, armour / fast creeps |
+| **Fire** | 5 | Hits burn for 60% of the hit per second (3 s); burning stops regeneration | Regen, swarms, armour / fast creeps |
 | ↳ **Inferno** | 10 | When a burning creep dies, the fire spreads to creeps within 1.2 tiles | Dense waves / lone bosses |
 | ↳ **Sunfire** | 10 | Focused beam: damage ramps +50% per second on the same target, up to ×3 | Bosses / swarms |
 | **Frost** | 5 | Hits slow 30% for 2 s (bosses half) | Fast creeps, flyers, supporting / raw damage |

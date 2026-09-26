@@ -34,6 +34,7 @@ public partial class AiController : Node
 	}
 
 	float _safety; // Shortfall's stream safety factor for the current spending pass
+	int _savingFor; // gold set aside this build phase for a milestone upgrade (kept out of sends)
 
 	public override void _Ready()
 	{
@@ -254,22 +255,24 @@ public partial class AiController : Node
 		var lane = Match.Lanes[Player];
 		var threat = Assess();
 		// Hoarders never dip below 60% of their bank, even to stop leaks: interest now vs lives now.
-		SpendPass(lane, threat, 1f, Style == Personality.Hoarder ? (int)(Reserve() * 0.6f) : 0);
-		SpendPass(lane, threat, Safety, Reserve());
+		_savingFor = 0;
+		SpendPass(lane, threat, 1f, Style == Personality.Hoarder ? (int)(Reserve() * 0.6f) : 0, canSave: false);
+		// The safety margin can wait for a milestone: survival is already covered by the first pass.
+		SpendPass(lane, threat, Safety, Reserve(), canSave: true);
 	}
 
-	void SpendPass(Lane lane, Threat threat, float safety, int reserve)
+	void SpendPass(Lane lane, Threat threat, float safety, int reserve, bool canSave)
 	{
 		_safety = safety;
 		for (int guard = 0; guard < 40; guard++)
 		{
 			float now = Shortfall(lane, threat);
-			if (now <= 0 || !SpendOnce(lane, threat, now, Match.Players[Player].Gold - reserve)) break;
+			if (now <= 0 || !SpendOnce(lane, threat, now, Match.Players[Player].Gold - reserve, canSave)) break;
 		}
 		_safety = Safety;
 	}
 
-	bool SpendOnce(Lane lane, Threat threat, float now, int gold)
+	bool SpendOnce(Lane lane, Threat threat, float now, int gold, bool canSave)
 	{
 		if (gold <= 0) return false;
 		var before = Capacity(lane, threat);
@@ -281,7 +284,10 @@ public partial class AiController : Node
 			if (def.Cost > gold) continue;
 			var cell = BestCell(lane, Catalog.Range(def, 1));
 			if (cell == null) continue;
-			float value = Gain(threat, before, Capacity(lane, threat, (def, 1, cell.Value, null))) / def.Cost * (0.9f + _rng.Randf() * 0.2f);
+			// Value a new tower partly by what it becomes: the same gold taken to level 5 (best branch).
+			// Without this a late bloomer (the Crystal) never looks worth building.
+			float nowValue = Gain(threat, before, Capacity(lane, threat, (def, 1, cell.Value, null))) / def.Cost;
+			float value = Blend(nowValue, Projected(lane, threat, before, def, 0, cell.Value, null)) * (0.9f + _rng.Randf() * 0.2f);
 			if (value > bestValue) { bestValue = value; best = new PlaceTower(cell.Value, def.Id); }
 		}
 
@@ -295,6 +301,21 @@ public partial class AiController : Node
 			if (value > bestValue) { bestValue = value; best = new BuyResearch(r.Id); }
 		}
 
+		// A milestone just out of reach (within about a wave of income) that beats everything affordable:
+		// stop here and save for it rather than frittering the gold on weaker buys.
+		float income = Match.Income(me) + Match.ExpectedBounty(Match.Wave);
+		float saveValue = 0;
+		int saveCost = 0;
+		foreach (var tw in lane.Towers.Values)
+		{
+			if (tw.MaxLevel || tw.UpgradeCost <= gold || !Catalog.IsMilestone(tw.Level + 1) || tw.UpgradeCost > gold + income * 1.2f) continue;
+			foreach (var option in BranchOptions(tw.Def, tw.Level + 1, tw.Branch))
+			{
+				float value = Gain(threat, before, Capacity(lane, threat, (tw.Def, tw.Level + 1, tw.Cell, option))) / tw.UpgradeCost;
+				if (value > saveValue) { saveValue = value; saveCost = tw.UpgradeCost; }
+			}
+		}
+
 		foreach (var tw in lane.Towers.Values)
 		{
 			if (tw.MaxLevel || tw.UpgradeCost > gold) continue;
@@ -303,12 +324,41 @@ public partial class AiController : Node
 			var options = choices.Length > 0 ? choices.Select(c => c.Id).ToArray() : new string[] { tw.Branch };
 			foreach (var option in options)
 			{
-				float value = Gain(threat, before, Capacity(lane, threat, (tw.Def, tw.Level + 1, tw.Cell, option))) / tw.UpgradeCost;
+				float nowValue = Gain(threat, before, Capacity(lane, threat, (tw.Def, tw.Level + 1, tw.Cell, option))) / tw.UpgradeCost;
+				// Same look-ahead as new towers get, so a started tower is carried on to its milestone.
+				float value = Catalog.IsMilestone(tw.Level + 1) ? nowValue
+					: Blend(nowValue, Projected(lane, threat, before, tw.Def, tw.Level, tw.Cell, tw.Branch));
 				if (value > bestValue) { bestValue = value; best = new UpgradeTower(tw.Cell, choices.Length > 0 ? option : null); }
 			}
 		}
 
+		if (canSave && saveValue > bestValue * 1.15f)
+		{
+			_savingFor = Mathf.Max(_savingFor, saveCost);
+			return false;
+		}
 		return best != null && Match.Submit(Player, best);
+	}
+
+	static float Blend(float now, float projected) => 0.6f * now + 0.4f * Mathf.Max(now, projected);
+
+	// Value per gold of taking a tower from `level` (0 = not built) to its next milestone (5, then 10),
+	// with the best branch on the way: what the gold is really buying when you start down that road.
+	float Projected(Lane lane, Threat threat, (float stream, float boss) before, TowerDef def, int level, Vector2I cell, string branch)
+	{
+		int target = level < 5 ? 5 : 10;
+		int paid = level == 0 ? 0 : Catalog.TotalCost(def, level);
+		float best = 0;
+		foreach (var option in level < 5 ? BranchOptions(def, 5) : new[] { branch })
+			best = Mathf.Max(best, Gain(threat, before, Capacity(lane, threat, (def, target, cell, option))));
+		return best / (Catalog.TotalCost(def, target) - paid);
+	}
+
+	// Branch ids to try when a tower reaches this level (null = no choice; keep the current branch).
+	static string[] BranchOptions(TowerDef def, int level, string current = null)
+	{
+		var choices = Catalog.BranchesFor(def, level);
+		return choices.Length > 0 ? choices.Select(c => c.Id).ToArray() : new[] { current };
 	}
 
 	void Invest()
@@ -323,7 +373,7 @@ public partial class AiController : Node
 			if (!Match.Submit(Player, new BuyResearch("warchest"))) break;
 
 		float greed = Greed + (opponent.LeakedLastWave > 0 ? 0.15f : 0f);
-		int budget = (int)(Mathf.Max(0, me.Gold - Reserve()) * greed);
+		int budget = (int)(Mathf.Max(0, me.Gold - Reserve() - _savingFor) * greed);
 		while (true)
 		{
 			var affordable = Catalog.Sends.Where(s => s.UnlockWave <= Match.Wave && s.Cost <= budget).ToList();
