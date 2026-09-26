@@ -22,6 +22,8 @@ public partial class Main : Node3D
 		int at = Array.IndexOf(args, "--autotest");
 		if (at >= 0 && at + 1 < args.Length) _autotestDir = args[at + 1];
 
+		if (SheetRenderer.TryAttach(this)) return;
+
 		if (IconBaker.Requested)
 		{
 			AddChild(new IconBaker());
