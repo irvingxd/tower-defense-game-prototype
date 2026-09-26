@@ -55,7 +55,7 @@ public static class Catalog
 		new("ballista", "Ballista", 1000, 28, 2.6f, 0.8f, 0f, true, "round", 'a', "weapon-ballista", "weapon-ammo-arrow", 10f, 0.15f),
 		new("cannon", "Cannon", 1400, 48, 3.0f, 1.3f, 1.0f, true, "square", 'b', "weapon-cannon", "weapon-ammo-cannonball", 7f, 0.5f),
 		new("catapult", "Catapult", 2000, 90, 3.8f, 2.6f, 1.3f, false, "round", 'c', "weapon-catapult", "weapon-ammo-boulder", 5f, 1.6f),
-		new("crystal", "Crystal Tower", 1300, 20, 2.8f, 0.6f, 0f, true, "round", 'b', "", "", 11f, 0.1f,
+		new("crystal", "Crystal Tower", 1300, 10, 2.8f, 0.6f, 0.8f, true, "round", 'b', "", "", 11f, 0.1f,
 			TopPiece: "tower-round-crystals", ArmorIgnore: 0.5f, Growth: 1.35f),
 	};
 
@@ -80,7 +80,7 @@ public static class Catalog
 	public static string RoleText(TowerDef d) => d.Id switch
 	{
 		"catapult" => $"×{SiegeBonus} vs bosses & tanks",
-		"crystal" => "Late bloomer: +35% damage per level · ignores half of armour · Fire or Frost at level 5",
+		"crystal" => "Support: small splash hits · Fire or Frost at level 5, effects grow to level 10 and don't stack",
 		"cannon" => $"×{ArmourBonus} vs armoured",
 		_ => "All-rounder",
 	};
@@ -91,7 +91,7 @@ public static class Catalog
 		"ballista" => ("Flyers, bosses one-on-one, fast creeps", "Armour (small hits), crowds without Splitting"),
 		"cannon" => ("Crowds & swarm packs, armoured creeps", "Lone bosses, spread-out fast creeps"),
 		"catapult" => ("Bosses & tanks, long range", "Flyers (until Scatter Shot), fast creeps"),
-		"crystal" => ("Fire: regen & armour (burn). Frost: fast creeps & flyers (slow)", "Early waves — starts weak, grows faster than any other tower"),
+		"crystal" => ("Making other towers better: Fire scorches (+damage taken), Frost slows", "Raw damage — one or two per stretch of path is plenty"),
 		_ => ("", ""),
 	};
 
@@ -168,16 +168,19 @@ public static class Catalog
 
 	public static bool IsMilestone(int toLevel) => toLevel is 5 or 10;
 
+	// Crystal effects start at level 5 and grow each level to 10. Like every slow/burn/vulnerability,
+	// the strongest one on a creep wins: a second Crystal on the same stretch adds coverage, not power.
 	public const float FireBurn = 0.6f;   // burn dps as a fraction of the hit
-	public const float FrostSlow = 0.35f;
 	public const float FrostSlowDuration = 2f;
+	public static float FrostSlowAt(int level) => level < 5 ? 0f : 0.25f + 0.04f * (level - 5); // 25% -> 45%
+	public static float ScorchAt(int level) => level < 5 ? 0f : 0.2f + 0.04f * (level - 5);     // +20% -> +40% damage taken
 	public const float AttunementPerLevel = 0.2f; // element strength
 
 	public static readonly BranchDef[] Branches =
 	{
-		new("fire", "crystal", 5, "Fire", $"Hits burn for {FireBurn * 100:0}% of the hit per second (3 s). Burning stops regeneration and ignores armour.",
+		new("fire", "crystal", 5, "Fire", $"Hits burn and scorch: creeps take +{ScorchAt(5) * 100:0}% damage from all towers (+{ScorchAt(10) * 100:0}% at level 10). Burning stops regeneration.",
 			new Color(1.35f, 0.55f, 0.35f)),
-		new("frost", "crystal", 5, "Frost", $"Hits slow by {FrostSlow * 100:0}% for {FrostSlowDuration} s (bosses half).",
+		new("frost", "crystal", 5, "Frost", $"Hits slow everything in the splash by {FrostSlowAt(5) * 100:0}% ({FrostSlowAt(10) * 100:0}% at level 10) for {FrostSlowDuration} s; bosses half.",
 			new Color(0.45f, 0.8f, 1.45f)),
 	};
 

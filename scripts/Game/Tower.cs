@@ -186,9 +186,10 @@ public partial class Tower : Node3D
 			{
 				float attune = 1f + Catalog.AttunementPerLevel * owner.Level("attunement");
 				shot.Burn = Catalog.BurnPerLevel * owner.Level("incendiary") + (Branch == "fire" ? Catalog.FireBurn * attune : 0f);
+				if (Branch == "fire") shot.Vulnerable = Catalog.ScorchAt(Level) * attune;
 				if (Branch == "frost")
 				{
-					shot.Slow = Mathf.Min(0.6f, Catalog.FrostSlow * attune);
+					shot.Slow = Mathf.Min(0.6f, Catalog.FrostSlowAt(Level) * attune);
 					shot.SlowDuration = Catalog.FrostSlowDuration;
 				}
 				if (BranchDef is { } b) shot.OrbColor = b.Tint.Clamp();
