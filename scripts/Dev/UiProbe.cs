@@ -32,7 +32,7 @@ public partial class UiProbe : Node
 			case 50: Shot("3-upgrades"); Key(Godot.Key.T); break;
 			case 60: Shot("4-army"); Key(Godot.Key.I); break;
 			case 70: Shot("5-intel"); Key(Godot.Key.Escape); break;   // close the flyout
-			case 74: Click(new Vector2I(3, 3)); break;
+			case 74: Click(new Vector2I(6, 6)); break;
 			case 76: Key(Godot.Key.G); Key(Godot.Key.G); break;          // targeting: First -> Last -> Strongest
 			case 80: Shot("6-towercard"); Key(Godot.Key.Escape); break; // deselect
 			case 84: Key(Godot.Key.Escape); break;                       // pause
@@ -56,6 +56,8 @@ public partial class UiProbe : Node
 		Place(new Vector2I(3, 6), "cannon", 5);
 		Place(new Vector2I(4, 8), "ballista", 2);
 		Place(new Vector2I(6, 3), "catapult", 10);
+		Place(new Vector2I(6, 6), "crystal", 4);            // selected below: shows the Fire/Frost choice
+		Place(new Vector2I(2, 5), "crystal", 5, "frost");
 		me.Research["slowing"] = 2;     // dev cheat: skip the wave locks
 		me.Research["incendiary"] = 2;
 		me.Research["warchest"] = 1;
@@ -108,10 +110,10 @@ public partial class UiProbe : Node
 		return null;
 	}
 
-	void Place(Vector2I cell, string id, int level)
+	void Place(Vector2I cell, string id, int level, string branch = null)
 	{
 		Match.Submit(0, new PlaceTower(cell, id));
-		for (int i = 1; i < level; i++) Match.Submit(0, new UpgradeTower(cell));
+		for (int i = 1; i < level; i++) Match.Submit(0, new UpgradeTower(cell, branch));
 	}
 
 	static void Key(Key k)

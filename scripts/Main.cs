@@ -141,7 +141,7 @@ public partial class Main : Node3D
 	async void FinishAutotest(Match match)
 	{
 		foreach (var p in match.Players)
-			_report.AppendLine($"gold {p.Name}: bounty {p.Stats.BountyEarned} income {p.Stats.IncomeEarned} interest {p.Stats.InterestEarned} sells {p.Stats.SellRefunds} | types {string.Join(",", p.Stats.Towers.GroupBy(t => t.Def.Id).Select(g => $"{g.Key} {g.Count()}"))} | towers {p.Stats.Towers.Count} maxed {p.Stats.Towers.Count(t => t.Level >= 10 && !t.Sold)}");
+			_report.AppendLine($"gold {p.Name}: bounty {p.Stats.BountyEarned} income {p.Stats.IncomeEarned} interest {p.Stats.InterestEarned} sells {p.Stats.SellRefunds} | types {string.Join(",", p.Stats.Towers.GroupBy(t => t.Def.Id).Select(g => $"{g.Key} {g.Count()}"))} branches {string.Join(",", match.Lanes[p.Index].Towers.Values.Where(t => t.Branch != null).GroupBy(t => t.Branch).Select(g => $"{g.Key} {g.Count()}"))} | towers {p.Stats.Towers.Count} maxed {p.Stats.Towers.Count(t => t.Level >= 10 && !t.Sold)}");
 		_report.AppendLine($"result: winner={(match.Winner < 0 ? "none" : match.Players[match.Winner].Name)} at wave {match.Wave}");
 		DirAccess.MakeDirRecursiveAbsolute(_autotestDir);
 		using (var f = FileAccess.Open($"{_autotestDir}/report.txt", FileAccess.ModeFlags.Write)) f.StoreString(_report.ToString());

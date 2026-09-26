@@ -75,9 +75,11 @@ public partial class Match : Node3D
 			case UpgradeTower ut:
 			{
 				if (!lane.Towers.TryGetValue(ut.Cell, out var tower) || tower.MaxLevel || me.Gold < tower.UpgradeCost) return false;
+				var choices = Catalog.BranchesFor(tower.Def, tower.Level + 1);
+				if (choices.Length > 0 && !choices.Any(b => b.Id == ut.Branch)) return false;
 				me.Stats.SpentUpgrades += tower.UpgradeCost;
 				me.Gold -= tower.UpgradeCost;
-				tower.Upgrade();
+				tower.Upgrade(choices.Length > 0 ? ut.Branch : null);
 				return true;
 			}
 			case SetTargeting stg:

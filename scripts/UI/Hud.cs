@@ -594,6 +594,8 @@ public partial class Hud : CanvasLayer
 	readonly List<(Button b, TargetMode mode)> _targetButtons = new();
 	HBoxContainer _pips;
 	Button _upgrade, _sell;
+	HBoxContainer _branchRow;
+	readonly List<Button> _branchButtons = new();
 
 	void BuildTowerCard()
 	{
@@ -668,6 +670,25 @@ public partial class Hud : CanvasLayer
 		_upgrade.TooltipText = "Upgrade  [U]";
 		_upgrade.Pressed += () => Input?.UpgradeSelected();
 		buttons.AddChild(_upgrade);
+		// Milestone choice: replaces the upgrade button when the next level offers branches.
+		_branchRow = new HBoxContainer { Visible = false };
+		_branchRow.AddThemeConstantOverride("separation", 6);
+		for (int i = 0; i < 2; i++)
+		{
+			var b = UiTheme.PrimaryButton("", 140, 46);
+			b.AddThemeFontSizeOverride("font_size", 14);
+			int index = i;
+			b.Pressed += () =>
+			{
+				var t = Input?.Selected;
+				if (t == null) return;
+				var choices = Catalog.BranchesFor(t.Def, t.Level + 1);
+				if (index < choices.Length) Input.UpgradeSelected(choices[index].Id);
+			};
+			_branchRow.AddChild(b);
+			_branchButtons.Add(b);
+		}
+		buttons.AddChild(_branchRow);
 		_sell = UiTheme.Button("", 190, 34, 13);
 		_sell.TooltipText = "Sell for 70% of everything spent on this tower  [Del]";
 		_sell.Pressed += () => Input?.SellSelected();
@@ -680,7 +701,7 @@ public partial class Hud : CanvasLayer
 		_towerCard.Visible = t != null;
 		if (t == null) return;
 		_towerImage.Texture = UiTheme.TowerPortrait(t.Def.Id, t.Level);
-		_towerName.Text = t.Def.Name;
+		_towerName.Text = t.DisplayName;
 		_towerLevel.Text = t.MaxLevel ? "MAX LEVEL" : $"Level {t.Level}";
 		for (int i = 0; i < _pips.GetChildCount(); i++)
 			((ColorRect)_pips.GetChild(i)).Color = i < t.Level ? UiTheme.Accent : new Color(1, 1, 1, 0.12f);
@@ -698,6 +719,23 @@ public partial class Hud : CanvasLayer
 			_towerNext.Text = $"Next: DMG {Catalog.Damage(t.Def, next):0}  ·  RNG {Catalog.Range(t.Def, next):0.0}" + (milestone ? $"   ★ MILESTONE: ×{Catalog.MilestoneDamage(next):0} damage, new look, +range" : "");
 			_upgrade.Text = $"UPGRADE   ● {t.UpgradeCost}";
 			_upgrade.Disabled = Me.Gold < t.UpgradeCost;
+		}
+		var choices = t.MaxLevel ? System.Array.Empty<BranchDef>() : Catalog.BranchesFor(t.Def, t.Level + 1);
+		_branchRow.Visible = choices.Length > 0;
+		_upgrade.Visible = choices.Length == 0;
+		if (choices.Length > 0)
+		{
+			_towerNext.Text = $"★ MILESTONE: choose {string.Join(" or ", choices.Select(c => c.Name))} — ×{Catalog.MilestoneDamage(t.Level + 1):0} damage, new look";
+			for (int i = 0; i < _branchButtons.Count; i++)
+			{
+				var b = _branchButtons[i];
+				b.Visible = i < choices.Length;
+				if (i >= choices.Length) continue;
+				b.Text = $"{choices[i].Name.ToUpperInvariant()}  ● {t.UpgradeCost}";
+				b.TooltipText = choices[i].Summary;
+				b.Disabled = Me.Gold < t.UpgradeCost;
+				b.AddThemeColorOverride("font_color", choices[i].Tint.Clamp().Darkened(0.55f));
+			}
 		}
 		_sell.Text = $"Sell  +{(int)(t.Invested * Catalog.SellRefund)}";
 		_towerRecord.Text = $"Dealt {Short(t.Record.Damage)} damage  ·  {t.Record.Kills} kills";

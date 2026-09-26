@@ -169,11 +169,13 @@ public partial class Enemy : Node3D
 	}
 
 	// source gets the damage/kill credit. Vulnerability (Heavy Boulders) amplifies the hit before armour.
-	public void TakeDamage(float amount, TowerRecord source = null, bool bounce = false)
+	// armorIgnore: fraction of armour the hit passes through (Crystal bolts).
+	public void TakeDamage(float amount, TowerRecord source = null, bool bounce = false, float armorIgnore = 0f)
 	{
 		if (Dead) return;
 		if (Vulnerable) amount *= 1f + _vuln;
-		float dealt = Hurt(Mathf.Max(amount - _armor, amount * 0.2f), source);
+		float armor = _armor * (1f - armorIgnore);
+		float dealt = Hurt(Mathf.Max(amount - armor, amount * 0.2f), source);
 		if (dealt >= 0.5f)
 			FloatingText.Spawn(Lane, NumberPos, Mathf.RoundToInt(dealt).ToString(),
 				bounce ? FloatingText.BounceColor : FloatingText.DamageColor, bounce ? 26 : 34);

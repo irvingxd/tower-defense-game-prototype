@@ -1,3 +1,4 @@
+using System.Linq;
 using Godot;
 using TowerDefense.Game;
 
@@ -38,7 +39,9 @@ public partial class Showcase : Node
 		{
 			var cell = new Vector2I(6 + l, 1 + t * 3);
 			Match.Submit(0, new PlaceTower(cell, Data.Catalog.Towers[t].Id));
-			for (int k = 1; k < levels[l]; k++) Match.Submit(0, new UpgradeTower(cell));
+			var def = Data.Catalog.Towers[t];
+			for (int k = 1; k < levels[l]; k++)
+				Match.Submit(0, new UpgradeTower(cell, Data.Catalog.BranchesFor(def, k + 1).Select(b => b.Id).FirstOrDefault()));
 		}
 		var cam = (CameraRig)GetViewport().GetCamera3D();
 		cam.Size = 8f;

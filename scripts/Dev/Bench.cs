@@ -40,16 +40,26 @@ public partial class Bench : Node
 		var me = Match.Players[0];
 		me.Lives = Match.Players[1].Lives = 100_000; // measure leaks, don't lose
 		me.Gold = _gold;
-		var def = Catalog.Tower(_tower);
+		// "crystal:fire@5" = tower id, the branch to take at milestones, and an optional focus level:
+		// build only as many towers as the budget can bring to that level, so branch forms get compared.
+		var spec = _tower.Split('@');
+		int focus = spec.Length > 1 ? int.Parse(spec[1]) : 1;
+		var parts = spec[0].Split(":");
+		var def = Catalog.Tower(parts[0]);
+		string branch = parts.Length > 1 ? parts[1] : null;
 		var lane = Match.Lanes[0];
+		int maxTowers = focus > 1 ? Math.Max(1, _gold / Catalog.TotalCost(def, focus)) : int.MaxValue;
 		int bestCoverage = lane.PathCellsInRange(BestCell(lane, def).Value, def.Range);
-		while (me.Gold >= def.Cost && BestCell(lane, def) is { } cell && lane.PathCellsInRange(cell, def.Range) >= bestCoverage * 0.7f)
+		while (lane.Towers.Count < maxTowers && me.Gold >= def.Cost && BestCell(lane, def) is { } cell && lane.PathCellsInRange(cell, def.Range) >= bestCoverage * 0.7f)
 			Match.Submit(0, new PlaceTower(cell, def.Id));
+		// Bring every tower to the focus level first.
+		foreach (var t in lane.Towers.Values.ToList())
+			while (t.Level < focus && t.UpgradeCost <= me.Gold && Match.Submit(0, new UpgradeTower(t.Cell, branch))) { }
 		// Leftover gold: cheapest upgrades first, spreading levels evenly.
 		while (true)
 		{
 			var t = lane.Towers.Values.Where(x => !x.MaxLevel && x.UpgradeCost <= me.Gold).OrderBy(x => x.UpgradeCost).FirstOrDefault();
-			if (t == null || !Match.Submit(0, new UpgradeTower(t.Cell))) break;
+			if (t == null || !Match.Submit(0, new UpgradeTower(t.Cell, branch))) break;
 		}
 		Match.Submit(0, new ReadyUp());
 		Match.Submit(1, new ReadyUp());

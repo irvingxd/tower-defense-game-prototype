@@ -7,7 +7,8 @@ namespace TowerDefense.Game;
 public abstract record Command;
 public sealed record PlaceTower(Vector2I Cell, string TowerId) : Command;
 public sealed record SellTower(Vector2I Cell) : Command;
-public sealed record UpgradeTower(Vector2I Cell) : Command;
+// Branch is required when the next level offers a choice (see Catalog.BranchesFor), ignored otherwise.
+public sealed record UpgradeTower(Vector2I Cell, string Branch = null) : Command;
 public sealed record SetTargeting(Vector2I Cell, TargetMode Mode) : Command;
 public sealed record SendUnit(string UnitId) : Command;
 public sealed record BuyResearch(string ResearchId) : Command;

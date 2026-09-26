@@ -60,7 +60,7 @@ public partial class AiController : Node
 	// What the lane must handle: the whole stream, and its single toughest creep passing every tower.
 	sealed class Threat
 	{
-		public float StreamHp, StreamSpeed, StreamArmor, AirShare, SwarmShare, ArmouredShare, SiegeShare;
+		public float StreamHp, StreamSpeed, StreamArmor, AirShare, SwarmShare, ArmouredShare, SiegeShare, RegenShare;
 		public float BossHp, BossSpeed, BossArmor;
 		public bool BossFlying;
 	}
@@ -73,7 +73,7 @@ public partial class AiController : Node
 	Threat Assess()
 	{
 		var t = AssessWave(Match.Wave, Match.IncomingUnits(Player).ToList());
-		float air = 0, armor = 0, speed = 0, swarm = 0, armoured = 0, siege = 0, weights = 0;
+		float air = 0, armor = 0, speed = 0, swarm = 0, armoured = 0, siege = 0, regen = 0, weights = 0;
 		for (int i = 0; i < LookAheadWeights.Length; i++)
 		{
 			int w = Match.Wave + i;
@@ -86,6 +86,7 @@ public partial class AiController : Node
 			swarm += profile.SwarmShare * k;
 			armoured += profile.ArmouredShare * k;
 			siege += profile.SiegeShare * k;
+			regen += profile.RegenShare * k;
 			weights += k;
 			if (i > 0 && i <= 2 && Catalog.IsBossWave(w))
 			{
@@ -105,6 +106,7 @@ public partial class AiController : Node
 		t.SwarmShare = swarm / weights;
 		t.ArmouredShare = armoured / weights;
 		t.SiegeShare = siege / weights;
+		t.RegenShare = regen / weights;
 		return t;
 	}
 
@@ -124,6 +126,7 @@ public partial class AiController : Node
 			if (u.Role == Role.Swarm) t.SwarmShare += 1;
 			if (Catalog.IsArmoured(u)) t.ArmouredShare += hp;
 			if (Catalog.IsSiegeTarget(u)) t.SiegeShare += hp;
+			if (u.Regen > 0) t.RegenShare += hp;
 			if (boss == null || hp > Match.EffectiveHp(boss)) boss = u;
 		}
 		t.StreamHp = hpSum;
@@ -133,6 +136,7 @@ public partial class AiController : Node
 		t.SwarmShare /= units.Count;
 		t.ArmouredShare /= hpSum;
 		t.SiegeShare /= hpSum;
+		t.RegenShare /= hpSum;
 		// Bosses arrive back to back, so the lane has to chew through all of them in one pass.
 		var bosses = units.Where(u => u.Role == Role.Boss).ToList();
 		if (bosses.Count == 0) bosses.Add(boss);
@@ -175,46 +179,54 @@ public partial class AiController : Node
 
 	// Damage the lane can put into the stream and into the bosses. `hypo` replaces/adds one tower,
 	// `research` previews one research level. Mirrors the real effects closely enough to rank buys.
-	(float stream, float boss) Capacity(Lane lane, Threat t, (TowerDef def, int level, Vector2I cell)? hypo = null, (string id, int level)? research = null)
+	(float stream, float boss) Capacity(Lane lane, Threat t, (TowerDef def, int level, Vector2I cell, string branch)? hypo = null, (string id, int level)? research = null)
 	{
 		float slow = Catalog.SlowPerLevel * ResearchLevel("slowing", research);
 		int bounces = ResearchLevel("splitting", research);
-		float burn = Catalog.BurnPerLevel * ResearchLevel("incendiary", research);
+		float incendiary = Catalog.BurnPerLevel * ResearchLevel("incendiary", research);
+		float attune = 1 + Catalog.AttunementPerLevel * ResearchLevel("attunement", research);
+		float heavy = Catalog.HeavyShellsPerLevel * ResearchLevel("heavyshells", research);
 		float shrapnel = Catalog.ShrapnelPerLevel * ResearchLevel("shrapnel", research);
 		float vuln = Catalog.VulnerabilityFor(ResearchLevel("boulders", research));
 		float scatter = Catalog.ScatterDamageFor(ResearchLevel("scatter", research));
 
 		var layout = Layout(lane, hypo).ToList();
-		// Slow only matters on the stretch of path ballistas cover.
-		float slowCover = slow <= 0 ? 0 : lane.PathCells.Count(p => layout.Any(x =>
-			x.Item1.Id == "ballista" && (p - x.Item3).LengthSquared() <= Catalog.Range(x.Item1, x.Item2) * Catalog.Range(x.Item1, x.Item2))) / (float)lane.PathCells.Count;
-		float streamSpeed = t.StreamSpeed * (1 - slow * slowCover);
-		float bossSpeed = t.BossSpeed * (1 - slow * Catalog.BossEffect * slowCover);
+		float Cover(System.Func<(TowerDef def, int level, Vector2I cell, string branch), bool> which) =>
+			lane.PathCells.Count(p => layout.Any(x => which(x) && (p - x.cell).LengthSquared() <= Catalog.Range(x.def, x.level) * Catalog.Range(x.def, x.level)))
+			/ (float)lane.PathCells.Count;
+
+		// Slows only matter on the stretch of path their towers cover: Slowing Bolts on ballistas, Frost crystals.
+		float frostSlow = Mathf.Min(0.6f, Catalog.FrostSlow * attune);
+		float slowFrac = (slow > 0 ? slow * Cover(x => x.def.Id == "ballista") : 0f)
+			+ frostSlow * Cover(x => x.branch == "frost");
+		slowFrac = Mathf.Min(slowFrac, 0.6f);
+		float streamSpeed = t.StreamSpeed * (1 - slowFrac);
+		float bossSpeed = t.BossSpeed * (1 - slowFrac * Catalog.BossEffect);
 		// Heavy Boulders: everything hit by a catapult takes more damage for a while — scale by how much
 		// of the path catapults cover (the debuff is up about 70% of the time there).
-		float vulnCover = vuln <= 0 ? 0 : lane.PathCells.Count(p => layout.Any(x =>
-			x.Item1.Id == "catapult" && (p - x.Item3).LengthSquared() <= Catalog.Range(x.Item1, x.Item2) * Catalog.Range(x.Item1, x.Item2))) / (float)lane.PathCells.Count;
-		float amp = 1 + vuln * vulnCover * 0.7f;
+		float amp = 1 + (vuln <= 0 ? 0 : vuln * Cover(x => x.def.Id == "catapult") * 0.7f);
 		// Splash is worth more against dense swarms (the benchmark: cannon best on Orc Warband).
 		float splashTargets = 1.5f + 1.2f * t.SwarmShare;
 
 		float stream = 0, boss = 0;
-		foreach (var (def, level, cell) in layout)
+		foreach (var (def, level, cell, branch) in layout)
 		{
 			float cells = lane.PathCellsInRange(cell, Catalog.Range(def, level));
-			bool ballista = def.Id == "ballista", cannon = def.Id == "cannon", catapult = def.Id == "catapult";
+			bool ballista = def.Id == "ballista", cannon = def.Id == "cannon", catapult = def.Id == "catapult", crystal = def.Id == "crystal";
 			float airDamage = def.HitsAir ? 1f : catapult ? scatter : 0f;
 			float airFactor = 1f - t.AirShare * (1f - airDamage);
 			// Role bonus on the share of the stream it applies to; bosses always count as siege targets.
-			float roleStream = cannon ? 1 + (Catalog.ArmourBonus - 1) * t.ArmouredShare
+			float roleStream = cannon ? 1 + (Catalog.ArmourBonus + heavy - 1) * t.ArmouredShare
 				: catapult ? 1 + (Catalog.SiegeBonus - 1) * t.SiegeShare : 1f;
 			float roleBoss = catapult ? Catalog.SiegeBonus : 1f;
-			float streamDps = Dps(def, level, t.StreamArmor) * amp * roleStream;
-			float bossDps = Dps(def, level, t.BossArmor) * amp * roleBoss;
-			if (cannon && burn > 0)
+			float pierce = 1f - def.ArmorIgnore;
+			float streamDps = Dps(def, level, t.StreamArmor * pierce) * amp * roleStream;
+			float bossDps = Dps(def, level, t.BossArmor * pierce) * amp * roleBoss;
+			// A refreshing burn is roughly burn x hit damage per second on what it hits (ignores armour).
+			float burn = crystal ? incendiary + (branch == "fire" ? Catalog.FireBurn * attune : 0f) : 0f;
+			if (burn > 0)
 			{
-				// A refreshing burn is roughly `burn` x hit damage per second on everything it splashed.
-				streamDps += Catalog.Damage(def, level) * burn;
+				streamDps += Catalog.Damage(def, level) * burn * (1 + t.RegenShare);
 				bossDps += Catalog.Damage(def, level) * burn;
 			}
 			float spread = def.Splash > 0 ? splashTargets * (cannon ? 1 + shrapnel : 1f) : 1f;
@@ -225,11 +237,11 @@ public partial class AiController : Node
 		return (stream, boss);
 	}
 
-	static IEnumerable<(TowerDef, int, Vector2I)> Layout(Lane lane, (TowerDef def, int level, Vector2I cell)? hypo)
+	static IEnumerable<(TowerDef def, int level, Vector2I cell, string branch)> Layout(Lane lane, (TowerDef def, int level, Vector2I cell, string branch)? hypo)
 	{
 		foreach (var tw in lane.Towers.Values)
 			if (hypo == null || tw.Cell != hypo.Value.cell)
-				yield return (tw.Def, tw.Level, tw.Cell);
+				yield return (tw.Def, tw.Level, tw.Cell, tw.Branch);
 		if (hypo != null) yield return hypo.Value;
 	}
 
@@ -269,7 +281,7 @@ public partial class AiController : Node
 			if (def.Cost > gold) continue;
 			var cell = BestCell(lane, Catalog.Range(def, 1));
 			if (cell == null) continue;
-			float value = Gain(threat, before, Capacity(lane, threat, (def, 1, cell.Value))) / def.Cost * (0.9f + _rng.Randf() * 0.2f);
+			float value = Gain(threat, before, Capacity(lane, threat, (def, 1, cell.Value, null))) / def.Cost * (0.9f + _rng.Randf() * 0.2f);
 			if (value > bestValue) { bestValue = value; best = new PlaceTower(cell.Value, def.Id); }
 		}
 
@@ -286,8 +298,14 @@ public partial class AiController : Node
 		foreach (var tw in lane.Towers.Values)
 		{
 			if (tw.MaxLevel || tw.UpgradeCost > gold) continue;
-			float value = Gain(threat, before, Capacity(lane, threat, (tw.Def, tw.Level + 1, tw.Cell))) / tw.UpgradeCost;
-			if (value > bestValue) { bestValue = value; best = new UpgradeTower(tw.Cell); }
+			// At a milestone choice, weigh each branch against the coming waves (look-ahead) and keep the best.
+			var choices = Catalog.BranchesFor(tw.Def, tw.Level + 1);
+			var options = choices.Length > 0 ? choices.Select(c => c.Id).ToArray() : new string[] { tw.Branch };
+			foreach (var option in options)
+			{
+				float value = Gain(threat, before, Capacity(lane, threat, (tw.Def, tw.Level + 1, tw.Cell, option))) / tw.UpgradeCost;
+				if (value > bestValue) { bestValue = value; best = new UpgradeTower(tw.Cell, choices.Length > 0 ? option : null); }
+			}
 		}
 
 		return best != null && Match.Submit(Player, best);

@@ -17,6 +17,9 @@ public partial class Tower : Node3D
 	public int Invested; // total gold spent, for sell refunds
 	public TargetMode Targeting = TargetMode.First;
 	public TowerRecord Record = new(); // damage/kills for the stats screen
+	public string Branch { get; private set; } // chosen at a milestone (e.g. "fire"/"frost"), null before
+	public BranchDef BranchDef => Catalog.Branch(Branch);
+	public string DisplayName => BranchDef is { } b ? $"{Def.Name} · {b.Name}" : Def.Name;
 
 	public float Damage => Catalog.Damage(Def, Level);
 	public float Range => Catalog.Range(Def, Level);
@@ -32,7 +35,7 @@ public partial class Tower : Node3D
 	public int PreviewLevel = 1;
 
 	Node3D _body, _weapon;
-	float _cooldown;
+	float _cooldown, _muzzleY;
 
 	public override void _Ready()
 	{
@@ -61,16 +64,24 @@ public partial class Tower : Node3D
 		var pieces = new string[tier + 2];
 		pieces[0] = $"tower-{Def.Shape}-bottom-{Def.Variant}";
 		for (int i = 0; i < tier; i++) pieces[i + 1] = $"tower-{Def.Shape}-middle-{MiddleVariants[i % 3]}";
-		pieces[^1] = $"tower-{Def.Shape}-top-{Def.Variant}";
+		pieces[^1] = Def.TopPiece ?? $"tower-{Def.Shape}-top-{Def.Variant}";
 		_body = Stack(pieces);
 		AddChild(_body);
+		// Branch colour on the top piece (the crystal glows red for Fire, ice-blue for Frost).
+		if (BranchDef is { } branch) Tint(_body.GetChild<Node3D>(_body.GetChildCount() - 1), branch.Tint);
 
 		float height = Models.Measure(_body).End.Y;
-		_weapon = Models.Td(Def.Weapon);
-		_weapon.Position = new Vector3(0, height - 0.05f, 0);
-		_weapon.Scale = Vector3.One * (1f + 0.15f * tier);
-		_weapon.Rotation = new Vector3(0, yaw, 0);
-		AddChild(_weapon);
+		_muzzleY = height + 0.15f;
+		_weapon = null;
+		if (Def.Weapon != "")
+		{
+			_weapon = Models.Td(Def.Weapon);
+			_weapon.Position = new Vector3(0, height - 0.05f, 0);
+			_weapon.Scale = Vector3.One * (1f + 0.15f * tier);
+			_weapon.Rotation = new Vector3(0, yaw, 0);
+			AddChild(_weapon);
+			_muzzleY = _weapon.Position.Y + 0.2f;
+		}
 
 		_label ??= new Label3D
 		{
@@ -90,13 +101,26 @@ public partial class Tower : Node3D
 		_label.Modulate = Catalog.VisualTier(Level) switch { 2 => new Color(1f, 0.8f, 0.2f), 1 => new Color(0.6f, 0.85f, 1f), _ => Colors.White };
 	}
 
-	public void Upgrade()
+	static void Tint(Node n, Color tint)
+	{
+		if (n is GeometryInstance3D g)
+			g.MaterialOverlay = new StandardMaterial3D
+			{
+				AlbedoColor = tint, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+				Transparency = BaseMaterial3D.TransparencyEnum.Alpha, BlendMode = BaseMaterial3D.BlendModeEnum.Mul,
+			};
+		foreach (var c in n.GetChildren()) Tint(c, tint);
+	}
+
+	// branch: the choice made at a milestone that offers one (validated by Match).
+	public void Upgrade(string branch = null)
 	{
 		Invested += UpgradeCost;
 		int oldTier = Catalog.VisualTier(Level);
 		Level++;
 		Record.Level = Level;
-		if (Catalog.VisualTier(Level) != oldTier) BuildVisual();
+		if (branch != null) Branch = branch;
+		if (Catalog.VisualTier(Level) != oldTier || branch != null) BuildVisual();
 		UpdateLabel();
 		float pop = Catalog.VisualTier(Level) != oldTier ? 0.7f : 0.92f;
 		Scale = Vector3.One * pop;
@@ -125,16 +149,17 @@ public partial class Tower : Node3D
 		if (target == null) return;
 
 		var to = target.Position - Position;
-		_weapon.Rotation = new Vector3(0, Mathf.Atan2(to.X, to.Z), 0);
+		if (_weapon != null) _weapon.Rotation = new Vector3(0, Mathf.Atan2(to.X, to.Z), 0);
 		if (_cooldown > 0) return;
 		_cooldown = Cooldown;
 
 		var shot = new Projectile
 		{
 			Def = Def, Damage = Damage, Lane = Lane, Target = target,
-			Position = Position + _weapon.Position + new Vector3(0, 0.2f, 0),
+			Position = Position + new Vector3(0, _muzzleY, 0),
 		};
 		shot.Source = Record;
+		shot.ArmorIgnore = Def.ArmorIgnore;
 		ApplyResearch(shot, Lane.Match.Players[Lane.Index]);
 		Lane.AddChild(shot);
 	}
@@ -151,11 +176,24 @@ public partial class Tower : Node3D
 			case "cannon":
 				shot.Burn = Catalog.BurnPerLevel * owner.Level("incendiary");
 				shot.SplashBonus = Catalog.ShrapnelPerLevel * owner.Level("shrapnel");
+				shot.ArmourBonusExtra = Catalog.HeavyShellsPerLevel * owner.Level("heavyshells");
 				break;
 			case "catapult":
 				shot.Vulnerable = Catalog.VulnerabilityFor(owner.Level("boulders"));
 				shot.AirDamage = Catalog.ScatterDamageFor(owner.Level("scatter"));
 				break;
+			case "crystal":
+			{
+				float attune = 1f + Catalog.AttunementPerLevel * owner.Level("attunement");
+				shot.Burn = Catalog.BurnPerLevel * owner.Level("incendiary") + (Branch == "fire" ? Catalog.FireBurn * attune : 0f);
+				if (Branch == "frost")
+				{
+					shot.Slow = Mathf.Min(0.6f, Catalog.FrostSlow * attune);
+					shot.SlowDuration = Catalog.FrostSlowDuration;
+				}
+				if (BranchDef is { } b) shot.OrbColor = b.Tint.Clamp();
+				break;
+			}
 		}
 	}
 
