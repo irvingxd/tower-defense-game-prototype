@@ -39,6 +39,8 @@ public partial class UiProbe : Node
 			case 94: Shot("7-pause"); Key(Godot.Key.Escape); break;     // resume
 			case 100: Key(Godot.Key.Space); break;
 			case 130: Shot("8-banner"); break;
+			case 400: HoverFirstCreep(); break;
+			case 404: Shot("9b-creepcard"); break;
 			case 520: Shot("9-wave"); Key(Godot.Key.F); Key(Godot.Key.F); break; // 3x speed until wave 2
 		}
 		if (_frame > 520 && _goldFrame == 0 && Match.Wave >= 2) _goldFrame = _frame;
@@ -88,6 +90,21 @@ public partial class UiProbe : Node
 	InputController FindInput()
 	{
 		foreach (var c in GetParent().GetChildren()) if (c is InputController ic) return ic;
+		return null;
+	}
+
+	void HoverFirstCreep()
+	{
+		var hud = FindHud(GetParent());
+		var lane = Match.Lanes[0];
+		if (hud == null || lane.Enemies.Count == 0) return;
+		var e = lane.Enemies[0];
+		hud.DebugMouse = GetViewport().GetCamera3D().UnprojectPosition(e.GlobalPosition + new Vector3(0, e.Def.Height * 0.5f, 0));
+	}
+
+	static UI.Hud FindHud(Node n)
+	{
+		foreach (var c in n.GetChildren()) if (c is UI.Hud h) return h;
 		return null;
 	}
 
