@@ -5,10 +5,10 @@ using static TowerDefense.Dev.SheetRenderer;
 namespace TowerDefense.Dev;
 
 // Proposed looks for the tower milestone branches: level 5 picks a branch, level 10 a sub-branch.
-// Rows per tower: [today's L1 | branch A (L5) | A1 (L10) | A2 (L10)] then [today's L10 | branch B | B1 | B2].
+// One row per tower: today's L1 | branch A (L5) | A1 | A2 (L10) | today's L10 | branch B (L5) | B1 | B2 (L10).
 public static class BranchSheet
 {
-	static readonly Color Frost = new(0.7f, 0.85f, 1.25f);
+	static readonly Color Frost = new(0.45f, 0.8f, 1.45f);
 	static readonly Color Sky = new(0.8f, 0.9f, 1.2f);
 	static readonly Color Ember = new(1.25f, 0.85f, 0.7f);
 
@@ -17,6 +17,8 @@ public static class BranchSheet
 	static Part Castle(string m, PartMode mode = PartMode.Top, float scale = 1, Vector3 offset = default, float rot = 0, Color? tint = null) =>
 		new("castle", m, mode, offset, rot, scale, tint);
 	static Entry E(string caption, string sub, params Part[] parts) => new(caption, new List<Part>(parts), sub);
+
+	static readonly Color Fire = new(1.35f, 0.55f, 0.35f);
 
 	public static List<Entry> Entries() => new()
 	{
@@ -87,15 +89,35 @@ public static class BranchSheet
 		E("Catapult L10", "today",
 			Td("tower-round-bottom-c"), Td("tower-round-middle-a"), Td("tower-round-middle-b"), Td("tower-round-top-c"),
 			Td("weapon-catapult", PartMode.Top, 1.3f)),
-		E("FROST ENGINE (L5)", "splash slow, hits air",
-			Td("tower-round-bottom-c"), Td("tower-round-middle-c"), Td("tower-round-crystals", tint: Frost), Td("weapon-catapult", PartMode.Top, 1f, tint: Frost)),
-		E("Glacier (L10)", "freezes packs",
-			Td("tower-round-bottom-c"), Td("tower-round-middle-c"), Td("tower-round-middle-b"), Td("tower-round-crystals", tint: Frost),
-			Td("weapon-catapult", PartMode.Top, 1.2f, tint: Frost),
-			Td("detail-crystal-large", PartMode.Free, 0.8f, new Vector3(-0.45f, 0, 0.35f)), Td("detail-crystal", PartMode.Free, 0.8f, new Vector3(0.45f, 0, 0.4f))),
-		E("Blizzard (L10)", "slow aura in range",
-			Td("snow-tile", PartMode.Free, 1.4f), Td("tower-round-bottom-c", PartMode.Stack, 1f, new Vector3(0, 0.2f, 0)), Td("tower-round-middle-c"), Td("tower-round-middle-b"),
-			Td("tower-round-crystals", tint: Frost), Td("weapon-catapult", PartMode.Top, 1.2f, tint: Frost),
-			Td("snow-detail-crystal-large", PartMode.Free, 0.8f, new Vector3(-0.45f, 0.2f, 0.35f))),
+		E("ONAGER (L5)", "3-boulder barrage",
+			Td("tower-round-base"), Castle("siege-catapult", PartMode.Top, 0.6f)),
+		E("Barrage (L10)", "5 boulders per volley",
+			Td("wood-structure-high", PartMode.Stack, 0.8f), Castle("siege-catapult", PartMode.Top, 0.72f),
+			Td("weapon-ammo-boulder", PartMode.Free, 1.6f, new Vector3(-0.45f, 0, 0.4f)), Td("weapon-ammo-boulder", PartMode.Free, 1.6f, new Vector3(-0.25f, 0, 0.55f)),
+			Td("weapon-ammo-boulder", PartMode.Free, 1.6f, new Vector3(0.45f, 0, 0.45f))),
+		E("Avalanche (L10)", "boulders roll along path",
+			Td("tower-round-base"), Castle("siege-catapult", PartMode.Top, 0.72f, tint: Ember),
+			Td("detail-rocks-large", PartMode.Free, 0.8f, new Vector3(-0.45f, 0, 0.4f)), Td("detail-rocks-large", PartMode.Free, 0.7f, new Vector3(0.45f, 0, 0.45f), 90)),
+
+		// ------------------------------------------------------------------ CRYSTAL (round b + crystal top) — Fire / Frost
+		E("Crystal L1", "magic bolt",
+			Td("tower-round-bottom-b"), Td("tower-round-crystals")),
+		E("FIRE (L5)", "burn, stops regen",
+			Td("tower-round-bottom-b"), Td("tower-round-middle-a"), Td("tower-round-crystals", tint: Fire)),
+		E("Inferno (L10)", "burn spreads on death",
+			Td("tower-round-bottom-b"), Td("tower-round-middle-a"), Td("tower-round-middle-c"), Td("tower-round-crystals", tint: Fire),
+			Td("detail-crystal-large", PartMode.Free, 0.8f, new Vector3(-0.45f, 0, 0.35f), tint: Fire), Td("detail-crystal", PartMode.Free, 0.8f, new Vector3(0.45f, 0, 0.4f), tint: Fire)),
+		E("Sunfire (L10)", "beam ramps on one target",
+			Td("tower-round-bottom-b"), Td("tower-round-middle-a"), Td("tower-round-middle-b"), Td("tower-round-middle-c"), Td("tower-round-crystals", tint: Fire)),
+		E("Crystal L10", "unattuned, for scale",
+			Td("tower-round-bottom-b"), Td("tower-round-middle-a"), Td("tower-round-middle-c"), Td("tower-round-crystals")),
+		E("FROST (L5)", "slow, hits air",
+			Td("tower-round-bottom-b"), Td("tower-round-middle-a"), Td("tower-round-crystals", tint: Frost)),
+		E("Glacier (L10)", "every 3rd hit freezes",
+			Td("tower-round-bottom-b"), Td("tower-round-middle-a"), Td("tower-round-middle-c"), Td("tower-round-crystals", tint: Frost),
+			Td("detail-crystal-large", PartMode.Free, 0.8f, new Vector3(-0.45f, 0, 0.35f), tint: Frost), Td("detail-crystal", PartMode.Free, 0.8f, new Vector3(0.45f, 0, 0.4f), tint: Frost)),
+		E("Blizzard (L10)", "slow aura, chilled +10%",
+			Td("snow-tile", PartMode.Free, 1.4f), Td("tower-round-bottom-b", PartMode.Stack, 1f, new Vector3(0, 0.2f, 0)), Td("tower-round-middle-a"), Td("tower-round-middle-c"),
+			Td("tower-round-crystals", tint: Frost), Td("snow-detail-crystal-large", PartMode.Free, 0.8f, new Vector3(-0.45f, 0.2f, 0.35f))),
 	};
 }
