@@ -41,7 +41,9 @@ public partial class Projectile : Node3D
 		float t = Mathf.Min(_t, 1f);
 		Position = _start.Lerp(_aim, t) + new Vector3(0, Def.Arc * 4 * t * (1 - t), 0);
 		var vel = Position - prev;
-		if (vel.LengthSquared() > 1e-6f) LookAt(GlobalPosition + vel, Vector3.Up);
+		// Skip near-vertical motion: LookAt with a direction parallel to Up is undefined (Godot warns).
+		if (vel.LengthSquared() > 1e-6f && new Vector2(vel.X, vel.Z).LengthSquared() > vel.LengthSquared() * 1e-4f)
+			LookAt(GlobalPosition + vel, Vector3.Up);
 		if (_t < 1f) return;
 
 		if (Def.Splash > 0)
