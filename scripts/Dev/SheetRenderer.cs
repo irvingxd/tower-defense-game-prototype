@@ -61,7 +61,7 @@ public partial class SheetRenderer : Node3D
 		int rows = (entries.Count + cols - 1) / cols;
 		var center = new Vector3((cols - 1) * Spacing / 2, branches ? 1.5f : 0.6f, (rows - 1) * rowSpacing / 2 + 0.3f);
 		float pitchRad = Mathf.DegToRad(pitch);
-		var cam = new Camera3D { Projection = Camera3D.ProjectionType.Orthogonal, Size = branches ? (rows - 1) * rowSpacing * Mathf.Sin(pitchRad) + 6.2f : rows * Spacing * 1.25f + 1.2f, Far = 200 };
+		var cam = new Camera3D { Projection = Camera3D.ProjectionType.Orthogonal, Size = branches ? Mathf.Max((rows - 1) * rowSpacing * Mathf.Sin(pitchRad) + 6.2f, cols * Spacing / 1.75f + 0.6f) : rows * Spacing * 1.25f + 1.2f, Far = 200 };
 		AddChild(cam);
 		cam.Position = center + new Vector3(0, Mathf.Sin(pitchRad), Mathf.Cos(pitchRad)) * 40;
 		cam.LookAt(center);
