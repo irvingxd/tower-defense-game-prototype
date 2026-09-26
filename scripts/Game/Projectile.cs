@@ -63,6 +63,7 @@ public partial class Projectile : Node3D
 	void Hit(Enemy e, float damage)
 	{
 		if (e.Def.Flying && !Def.HitsAir) damage *= AirDamage;
+		if (!IsBounce) damage *= Catalog.RoleBonus(Def, e.Def);
 		e.TakeDamage(damage, Source, IsBounce);
 		if (Slow > 0) e.ApplySlow(Slow, Catalog.SlowDuration);
 		if (Burn > 0) e.ApplyBurn(damage * Burn, Catalog.BurnDuration, Source);

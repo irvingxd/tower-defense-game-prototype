@@ -49,13 +49,34 @@ public static class Catalog
 	public static readonly TowerDef[] Towers =
 	{
 		new("ballista", "Ballista", 1000, 28, 2.6f, 0.8f, 0f, true, "round", 'a', "weapon-ballista", "weapon-ammo-arrow", 10f, 0.15f),
-		new("cannon", "Cannon", 1700, 48, 2.3f, 1.3f, 0.9f, true, "square", 'b', "weapon-cannon", "weapon-ammo-cannonball", 7f, 0.5f),
-		new("catapult", "Catapult", 2600, 90, 3.8f, 2.6f, 1.3f, false, "round", 'c', "weapon-catapult", "weapon-ammo-boulder", 5f, 1.6f),
+		new("cannon", "Cannon", 1400, 48, 2.3f, 1.3f, 0.9f, true, "square", 'b', "weapon-cannon", "weapon-ammo-cannonball", 7f, 0.5f),
+		new("catapult", "Catapult", 2000, 90, 3.8f, 2.6f, 1.3f, false, "round", 'c', "weapon-catapult", "weapon-ammo-boulder", 5f, 1.6f),
 	};
 
 	// Ten levels. Each adds +25% damage and a little attack speed; levels 5 and 10 are milestones
 	// that also extend range and change the building (see Tower.VisualTier).
 	public const int MaxTowerLevel = 10;
+
+	// Tower roles: the Ballista is the all-rounder (hits air, no bonus); the Catapult is the siege tower
+	// (bosses and tanks), the Cannon cracks armour. Multiplies the hit before armour.
+	public const float SiegeBonus = 1.75f, ArmourBonus = 1.5f;
+
+	public static bool IsArmoured(UnitDef u) => u.Armor >= 4 && u.Role != Role.Boss;
+	public static bool IsSiegeTarget(UnitDef u) => u.Role is Role.Boss or Role.Tank;
+
+	public static float RoleBonus(TowerDef d, UnitDef u) => d.Id switch
+	{
+		"catapult" when IsSiegeTarget(u) => SiegeBonus,
+		"cannon" when IsArmoured(u) => ArmourBonus,
+		_ => 1f,
+	};
+
+	public static string RoleText(TowerDef d) => d.Id switch
+	{
+		"catapult" => $"×{SiegeBonus} vs bosses & tanks",
+		"cannon" => $"×{ArmourBonus} vs armoured",
+		_ => "All-rounder",
+	};
 
 	// Normal levels: +25% damage for 30% of what the tower cost so far. Milestones are proportional too:
 	// 4 -> 5 doubles damage and costs everything invested so far; 9 -> 10 triples it for twice that.
@@ -97,7 +118,7 @@ public static class Catalog
 		return role switch
 		{
 			Role.Basic => u with { Hp = 45, Speed = 1.1f },
-			Role.Swarm => u with { Hp = 26, Speed = 1.3f, Height = height * 0.8f },
+			Role.Swarm => u with { Hp = 20, Speed = 1.3f, Height = height * 0.8f },
 			Role.Fast => u with { Hp = 34, Speed = 1.9f },
 			Role.Tank => u with { Hp = 150, Speed = 0.7f, Lives = 2, Height = height * 1.15f },
 			Role.Armored => u with { Hp = 95, Speed = 0.9f, Armor = 5 },
@@ -302,7 +323,7 @@ public static class Catalog
 		{
 			var id = arr[k % arr.Length];
 			list.Add(id);
-			if (Unit(id).Role == Role.Swarm) list.Add(id); // swarms come in pairs
+			if (Unit(id).Role == Role.Swarm) { list.Add(id); list.Add(id); } // swarms come in packs of 3
 		}
 		return list;
 	}

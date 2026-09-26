@@ -273,7 +273,7 @@ public partial class Hud : CanvasLayer
 		int i = 1;
 		foreach (var def in Catalog.Towers)
 		{
-			var (card, row) = Card(92);
+			var (card, row) = Card(108);
 			row.AddChild(UiTheme.Image(UiTheme.TowerPortrait(def.Id, 1), 72));
 			var text = TextColumn();
 			row.AddChild(text);
@@ -285,6 +285,7 @@ public partial class Hud : CanvasLayer
 			text.AddChild(UiTheme.Label($"DMG {def.Damage:0}  ·  RNG {def.Range:0.0}  ·  {1 / def.Cooldown:0.0}/s", 12, UiTheme.Muted));
 			var tags = (def.Splash > 0 ? "Splash  ·  " : "Single target  ·  ") + (def.HitsAir ? "Hits air" : "Ground only");
 			text.AddChild(UiTheme.Label(tags, 12, def.HitsAir ? UiTheme.Info : UiTheme.Bad));
+			text.AddChild(UiTheme.Label(Catalog.RoleText(def), 12, UiTheme.Accent));
 			var d = def;
 			card.Pressed += () => Input?.SelectBuild(d.Id);
 			body.AddChild(card);
@@ -612,7 +613,7 @@ public partial class Hud : CanvasLayer
 		_towerLevel.Text = t.MaxLevel ? "MAX LEVEL" : $"Level {t.Level}";
 		for (int i = 0; i < _pips.GetChildCount(); i++)
 			((ColorRect)_pips.GetChild(i)).Color = i < t.Level ? UiTheme.Accent : new Color(1, 1, 1, 0.12f);
-		_towerStats.Text = $"DMG {t.Damage:0}  ·  RNG {t.Range:0.0}  ·  {1 / t.Cooldown:0.0}/s  ·  {(t.Def.Splash > 0 ? "Splash" : "Single")}  ·  {(t.Def.HitsAir ? "Hits air" : t.HitsAir ? $"Hits air ({Catalog.ScatterDamageFor(Me.Level("scatter")) * 100:0}%)" : "Ground only")}";
+		_towerStats.Text = $"DMG {t.Damage:0}  ·  RNG {t.Range:0.0}  ·  {1 / t.Cooldown:0.0}/s  ·  {Catalog.RoleText(t.Def)}  ·  {(t.Def.HitsAir ? "Hits air" : t.HitsAir ? $"Hits air ({Catalog.ScatterDamageFor(Me.Level("scatter")) * 100:0}%)" : "Ground only")}";
 		if (t.MaxLevel)
 		{
 			_towerNext.Text = "Fully upgraded.";
