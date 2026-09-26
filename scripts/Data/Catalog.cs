@@ -118,7 +118,7 @@ public static class Catalog
 		return role switch
 		{
 			Role.Basic => u with { Hp = 45, Speed = 1.1f },
-			Role.Swarm => u with { Hp = 26, Speed = 1.3f, Height = height * 0.8f },
+			Role.Swarm => u with { Hp = 20, Speed = 1.3f, Height = height * 0.8f },
 			Role.Fast => u with { Hp = 34, Speed = 1.9f },
 			Role.Tank => u with { Hp = 150, Speed = 0.7f, Lives = 2, Height = height * 1.15f },
 			Role.Armored => u with { Hp = 95, Speed = 0.9f, Armor = 5 },
@@ -323,7 +323,7 @@ public static class Catalog
 		{
 			var id = arr[k % arr.Length];
 			list.Add(id);
-			if (Unit(id).Role == Role.Swarm) list.Add(id); // swarms come in pairs
+			if (Unit(id).Role == Role.Swarm) { list.Add(id); list.Add(id); } // swarms come in packs of 3
 		}
 		return list;
 	}

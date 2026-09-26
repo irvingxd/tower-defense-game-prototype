@@ -43,6 +43,7 @@ public partial class Lane : Node3D
 	float _hpMul = 1f, _armorMul = 1f;
 	float _spawnTimer;
 	const float SpawnInterval = 0.85f;
+	const float PackInterval = 0.3f; // swarm creeps of the same kind arrive bunched, so splash pays off
 
 	public bool Busy => _spawnQueue.Count > 0 || Enemies.Count > 0;
 
@@ -169,8 +170,9 @@ public partial class Lane : Node3D
 		if (_spawnQueue.Count == 0) return;
 		_spawnTimer -= (float)delta;
 		if (_spawnTimer > 0) return;
-		_spawnTimer = SpawnInterval;
 		var (unit, sent) = _spawnQueue.Dequeue();
+		bool packNext = _spawnQueue.Count > 0 && _spawnQueue.Peek().unit == unit && Catalog.Unit(unit).Role == Role.Swarm;
+		_spawnTimer = packNext ? PackInterval : SpawnInterval;
 		var enemy = new Enemy { Def = Catalog.Unit(unit), Sent = sent, Lane = this, HpMultiplier = _hpMul, ArmorMultiplier = _armorMul };
 		Enemies.Add(enemy);
 		AddChild(enemy);
