@@ -74,6 +74,8 @@ public partial class Enemy : Node3D
 	}
 
 	public bool IsBoss => Def.Role == Role.Boss;
+	public float Armor => _armor;
+	public float CurrentSpeed => Def.Speed * (Slowed ? 1f - _slow : 1f);
 	public bool Slowed => _slowTime > 0;
 	public bool Burning => _burnTime > 0;
 	AnimationPlayer _anim;
