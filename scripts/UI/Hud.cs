@@ -36,6 +36,7 @@ public partial class Hud : CanvasLayer
 		BuildActions();
 		BuildTowerCard();
 		BuildHint();
+		BuildCreepCard();
 		BuildBanner();
 		BuildPause();
 		BuildGameOver();
@@ -63,6 +64,7 @@ public partial class Hud : CanvasLayer
 		UpdateActions();
 		UpdateTowerCard();
 		UpdateHint();
+		UpdateCreepCard();
 		if (_openFlyout != null)
 		{
 			_flyoutUpdaters[_openFlyout]();
@@ -266,26 +268,40 @@ public partial class Hud : CanvasLayer
 
 	// ---------------------------------------------------------------- Buildings
 
+	// "✔ Excels at / ✘ Weak against" lines, shared by the Buildings cards and the tower card.
+	static void AddMatchups(Container parent, TowerDef def, float width)
+	{
+		var (excels, weak) = Catalog.Matchups(def);
+		foreach (var (text, color) in new[] { ($"✔ Excels: {excels}", UiTheme.Good), ($"✘ Weak: {weak}", UiTheme.Bad) })
+		{
+			var l = UiTheme.Label(text, 12, color);
+			l.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+			l.CustomMinimumSize = new Vector2(width, 0);
+			l.MouseFilter = Control.MouseFilterEnum.Ignore;
+			parent.AddChild(l);
+		}
+	}
+
 	(Control, Action) BuildBuildings()
 	{
-		var (panel, body) = Flyout("Buildings", "Pick a tower, then click an empty tile. Right-click cancels.", 400);
+		var (panel, body) = Flyout("Buildings", "Pick a tower, then click an empty tile. Right-click cancels.", 440);
 		var cards = new List<(Button card, TowerDef def)>();
 		int i = 1;
 		foreach (var def in Catalog.Towers)
 		{
-			var (card, row) = Card(108);
+			var (card, row) = Card(138);
 			row.AddChild(UiTheme.Image(UiTheme.TowerPortrait(def.Id, 1), 72));
 			var text = TextColumn();
 			row.AddChild(text);
 			var head = new HBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
 			head.AddChild(UiTheme.Label(def.Name, 17, bold: true));
 			head.AddChild(UiTheme.Label($"[{i++}]", 12, UiTheme.Muted));
+			head.AddChild(UiTheme.Label($"● {def.Cost}", 15, UiTheme.Gold, bold: true));
 			text.AddChild(head);
-			text.AddChild(UiTheme.Label($"● {def.Cost}", 15, UiTheme.Gold, bold: true));
-			text.AddChild(UiTheme.Label($"DMG {def.Damage:0}  ·  RNG {def.Range:0.0}  ·  {1 / def.Cooldown:0.0}/s", 12, UiTheme.Muted));
-			var tags = (def.Splash > 0 ? "Splash  ·  " : "Single target  ·  ") + (def.HitsAir ? "Hits air" : "Ground only");
-			text.AddChild(UiTheme.Label(tags, 12, def.HitsAir ? UiTheme.Info : UiTheme.Bad));
-			text.AddChild(UiTheme.Label(Catalog.RoleText(def), 12, UiTheme.Accent));
+			var tags = (def.Splash > 0 ? $"Splash {def.Splash:0.0}" : "Single target") + (def.HitsAir ? "  ·  Hits air" : "  ·  Ground only");
+			text.AddChild(UiTheme.Label($"DMG {def.Damage:0}  ·  RNG {def.Range:0.0}  ·  {1 / def.Cooldown:0.0}/s  ·  {tags}", 12, UiTheme.Muted));
+			text.AddChild(UiTheme.Label(Catalog.RoleText(def), 12, UiTheme.Accent, bold: true));
+			AddMatchups(text, def, 300);
 			var d = def;
 			card.Pressed += () => Input?.SelectBuild(d.Id);
 			body.AddChild(card);
@@ -422,9 +438,41 @@ public partial class Hud : CanvasLayer
 
 	// ---------------------------------------------------------------- Intel
 
+	static readonly Dictionary<Catalog.WaveTag, Color> TagColors = new()
+	{
+		[Catalog.WaveTag.Boss] = new Color(0.85f, 0.25f, 0.25f),
+		[Catalog.WaveTag.Air] = new Color(0.25f, 0.6f, 0.95f),
+		[Catalog.WaveTag.Armoured] = new Color(0.55f, 0.6f, 0.68f),
+		[Catalog.WaveTag.Tanks] = new Color(0.72f, 0.45f, 0.2f),
+		[Catalog.WaveTag.Swarm] = new Color(0.3f, 0.7f, 0.35f),
+		[Catalog.WaveTag.Regen] = new Color(0.85f, 0.4f, 0.7f),
+		[Catalog.WaveTag.Fast] = new Color(0.85f, 0.7f, 0.15f),
+		[Catalog.WaveTag.Splits] = new Color(0.55f, 0.75f, 0.2f),
+	};
+
+	// Coloured chips for each tag, with the counter in the tooltip.
+	static HBoxContainer TagRow(Catalog.WaveTag tags, bool interactive = true)
+	{
+		var row = new HBoxContainer { MouseFilter = interactive ? Control.MouseFilterEnum.Pass : Control.MouseFilterEnum.Ignore };
+		row.AddThemeConstantOverride("separation", 4);
+		foreach (var tag in Catalog.AllTags)
+		{
+			if ((tags & tag) == 0) continue;
+			var (label, counter) = Catalog.TagInfo(tag);
+			var chip = new PanelContainer { TooltipText = $"{label}: counter with {counter}", MouseFilter = interactive ? Control.MouseFilterEnum.Stop : Control.MouseFilterEnum.Ignore };
+			var style = UiTheme.Rounded(TagColors[tag], 5);
+			style.ContentMarginLeft = style.ContentMarginRight = 6;
+			style.ContentMarginTop = style.ContentMarginBottom = 1;
+			chip.AddThemeStyleboxOverride("panel", style);
+			chip.AddChild(UiTheme.Label(label, 10, Colors.White, bold: true));
+			row.AddChild(chip);
+		}
+		return row;
+	}
+
 	(Control, Action) BuildIntel()
 	{
-		var (panel, body) = Flyout("Intel", "What's coming down your lane next.", 400);
+		var (panel, body) = Flyout("Intel", "What's coming down your lane. Hover a tag for its counter.", 470);
 		int shownWave = -1;
 		return (panel, () =>
 		{
@@ -433,24 +481,43 @@ public partial class Hud : CanvasLayer
 			shownWave = wave;
 			foreach (var c in body.GetChildren()) c.QueueFree();
 
+			// Next wave in detail
 			var theme = Catalog.ThemeFor(wave);
-			body.AddChild(UiTheme.Label($"Wave {wave} · {theme.Name}", 17, bold: true));
+			body.AddChild(UiTheme.Label($"Next: wave {wave} · {theme.Name}", 17, bold: true));
+			body.AddChild(TagRow(Catalog.TagsForWave(wave)));
 			body.AddChild(UiTheme.Label($"Creep HP ×{Catalog.HpMultiplier(wave):0.0}   ·   armour ×{Catalog.ArmorMultiplier(wave):0.0}", 12, UiTheme.Muted));
 			foreach (var g in Catalog.BaseWave(wave).GroupBy(x => x))
 			{
 				var unit = Catalog.Unit(g.Key);
 				var row = new HBoxContainer();
-				row.AddChild(UiTheme.Image(UiTheme.UnitPortrait(unit.Id), 44));
+				row.AddChild(UiTheme.Image(UiTheme.UnitPortrait(unit.Id), 40));
 				var text = TextColumn();
-				text.AddChild(UiTheme.Label($"{g.Count()}×  {unit.Name}", 15, unit.Role == Role.Boss ? UiTheme.Bad : UiTheme.Text, bold: true));
-				text.AddChild(UiTheme.Label(RoleText(unit), 12, UiTheme.Muted));
+				text.AddChild(UiTheme.Label($"{g.Count()}×  {unit.Name}", 14, unit.Role == Role.Boss ? UiTheme.Bad : UiTheme.Text, bold: true));
+				text.AddChild(UiTheme.Label(RoleText(unit), 11, UiTheme.Muted));
 				row.AddChild(text);
+				row.AddChild(TagRow(Catalog.TagsOf(unit)));
 				body.AddChild(row);
 			}
-			body.AddChild(UiTheme.Label("+ whatever your opponent sends (hidden)", 12, UiTheme.Muted));
-			int nextBoss = (wave + Catalog.WavesPerTheme - 1) / Catalog.WavesPerTheme * Catalog.WavesPerTheme;
-			if (nextBoss != wave && nextBoss <= Catalog.FinalWave)
-				body.AddChild(UiTheme.Label($"Next boss: wave {nextBoss} — {Catalog.Unit(Catalog.ThemeFor(nextBoss).Boss).Name}", 13, UiTheme.Bad));
+			body.AddChild(UiTheme.Label("+ whatever your opponent sends (hidden)", 11, UiTheme.Muted));
+
+			// Timeline: the next dozen waves at a glance.
+			body.AddChild(UiTheme.Divider());
+			body.AddChild(UiTheme.Label("Coming up", 17, UiTheme.Accent, bold: true));
+			for (int w = wave + 1; w <= Math.Min(wave + 12, Catalog.FinalWave); w++)
+			{
+				var tags = Catalog.TagsForWave(w);
+				bool boss = Catalog.IsBossWave(w);
+				var row = new HBoxContainer();
+				var num = UiTheme.Label($"W{w}", 13, boss ? UiTheme.Bad : UiTheme.Text, bold: true);
+				num.CustomMinimumSize = new Vector2(36, 0);
+				row.AddChild(num);
+				var name = UiTheme.Label(boss ? Catalog.Unit(Catalog.ThemeFor(w).Boss).Name : Catalog.ThemeFor(w).Name, 12, boss ? UiTheme.Bad : UiTheme.Muted);
+				name.CustomMinimumSize = new Vector2(118, 0);
+				name.ClipText = true;
+				row.AddChild(name);
+				row.AddChild(TagRow(tags));
+				body.AddChild(row);
+			}
 		});
 	}
 
@@ -523,7 +590,7 @@ public partial class Hud : CanvasLayer
 
 	PanelContainer _towerCard;
 	TextureRect _towerImage;
-	Label _towerName, _towerLevel, _towerStats, _towerNext, _towerRecord;
+	Label _towerName, _towerLevel, _towerStats, _towerNext, _towerRecord, _towerExcels, _towerWeak;
 	readonly List<(Button b, TargetMode mode)> _targetButtons = new();
 	HBoxContainer _pips;
 	Button _upgrade, _sell;
@@ -566,6 +633,10 @@ public partial class Hud : CanvasLayer
 		text.AddChild(_towerNext);
 		_towerRecord = UiTheme.Label("", 12, UiTheme.Info);
 		text.AddChild(_towerRecord);
+		_towerExcels = UiTheme.Label("", 12, UiTheme.Good);
+		_towerWeak = UiTheme.Label("", 12, UiTheme.Bad);
+		text.AddChild(_towerExcels);
+		text.AddChild(_towerWeak);
 
 		// Targeting mode selector
 		var targeting = new HBoxContainer();
@@ -630,7 +701,113 @@ public partial class Hud : CanvasLayer
 		}
 		_sell.Text = $"Sell  +{(int)(t.Invested * Catalog.SellRefund)}";
 		_towerRecord.Text = $"Dealt {Short(t.Record.Damage)} damage  ·  {t.Record.Kills} kills";
+		var (excels, weak) = Catalog.Matchups(t.Def);
+		_towerExcels.Text = $"✔ Excels: {excels}";
+		_towerWeak.Text = $"✘ Weak: {weak}";
 		foreach (var (b, mode) in _targetButtons) b.ButtonPressed = t.Targeting == mode;
+	}
+
+	// ================================================================== creep hover card
+
+	PanelContainer _creepCard;
+	TextureRect _creepImage;
+	Label _creepName, _creepHp, _creepStats, _creepStatus, _creepCounter;
+	ProgressBar _creepBar;
+	Container _creepTagSlot;
+	Enemy _hovered;
+	public Vector2? DebugMouse; // dev probes: pretend the pointer is here (never set in normal play)
+	const float HoverRadius = 40f; // pixels from the creep's centre
+
+	void BuildCreepCard()
+	{
+		_creepCard = new PanelContainer { Visible = false, MouseFilter = Control.MouseFilterEnum.Ignore };
+		_creepCard.AddThemeStyleboxOverride("panel", UiTheme.Panel(UiTheme.Bg, 10, 10));
+		_root.AddChild(_creepCard);
+		var row = new HBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+		row.AddThemeConstantOverride("separation", 10);
+		_creepCard.AddChild(row);
+		_creepImage = UiTheme.Image(null, 64);
+		row.AddChild(_creepImage);
+		var col = TextColumn();
+		col.AddThemeConstantOverride("separation", 2);
+		col.CustomMinimumSize = new Vector2(250, 0);
+		row.AddChild(col);
+		_creepName = UiTheme.Label("", 16, bold: true);
+		_creepHp = UiTheme.Label("", 12);
+		_creepBar = new ProgressBar { ShowPercentage = false, CustomMinimumSize = new Vector2(240, 6), MouseFilter = Control.MouseFilterEnum.Ignore };
+		_creepBar.AddThemeStyleboxOverride("fill", UiTheme.Rounded(UiTheme.Good, 3));
+		_creepStats = UiTheme.Label("", 12, UiTheme.Muted);
+		_creepTagSlot = new HBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+		_creepStatus = UiTheme.Label("", 12, UiTheme.Info);
+		_creepCounter = UiTheme.Label("", 12, UiTheme.Accent);
+		foreach (var c in new Control[] { _creepName, _creepHp, _creepBar, _creepStats, _creepTagSlot, _creepStatus, _creepCounter })
+		{
+			c.MouseFilter = Control.MouseFilterEnum.Ignore;
+			col.AddChild(c);
+		}
+	}
+
+	// Which tower answers this creep best — the same logic as the tag counters, picked by priority.
+	static string CounterFor(UnitDef u) =>
+		u.Role is Role.Boss or Role.Tank ? (u.Flying ? "Ballista (flying) · Catapult with Scatter Shot" : "Catapult (×1.75)")
+		: u.Flying ? "Ballista · Cannon splash"
+		: Catalog.IsArmoured(u) ? "Cannon (×1.5 vs armour)"
+		: u.Role == Role.Swarm || u.SplitInto != null ? "Cannon splash"
+		: u.Speed >= 1.4f ? "Ballista + Slowing Bolts"
+		: "Any tower";
+
+	void UpdateCreepCard()
+	{
+		_creepCard.Visible = false;
+		if (Input == null || (DebugMouse == null && GetViewport().GuiGetHoveredControl() != null)) return;
+		var cam = GetViewport().GetCamera3D();
+		if (cam == null) return;
+		var mouse = DebugMouse ?? GetViewport().GetMousePosition();
+		Enemy best = null;
+		float bestDist = HoverRadius;
+		foreach (var lane in Match.Lanes)
+		foreach (var e in lane.Enemies)
+		{
+			if (e.Dead || !IsInstanceValid(e)) continue;
+			var center = e.GlobalPosition + new Vector3(0, e.Def.Height * 0.5f + (e.Def.Flying ? 0.35f : 0f), 0);
+			if (cam.IsPositionBehind(center)) continue;
+			float d = cam.UnprojectPosition(center).DistanceTo(mouse);
+			if (d < bestDist) { bestDist = d; best = e; }
+		}
+		if (best == null) return;
+
+		var u = best.Def;
+		if (best != _hovered)
+		{
+			_hovered = best;
+			_creepImage.Texture = UiTheme.UnitPortrait(u.Id);
+			foreach (var c in _creepTagSlot.GetChildren()) c.QueueFree();
+			_creepTagSlot.AddChild(TagRow(Catalog.TagsOf(u), interactive: false));
+			_creepCounter.Text = $"Counter: {CounterFor(u)}";
+		}
+		bool mine = best.Lane.Index == Player;
+		_creepName.Text = u.Name + (best.Sent ? "  (sent)" : "") + (mine ? "" : "  · opponent's lane");
+		_creepName.AddThemeColorOverride("font_color", u.Role == Role.Boss ? UiTheme.Bad : UiTheme.Text);
+		_creepHp.Text = $"HP {best.Hp:N0} / {best.MaxHp:N0}";
+		_creepBar.MaxValue = best.MaxHp;
+		_creepBar.Value = Mathf.Max(0, best.Hp);
+		_creepStats.Text = $"Armour {best.Armor:0}  ·  Speed {best.CurrentSpeed:0.0}  ·  ♥ {u.Lives}  ·  ● {Catalog.Bounty(u, best.Sent)}" +
+			(u.Regen > 0 ? $"  ·  Regen {u.Regen * 100:0}%/s" : "") + (u.SplitInto != null ? $"  ·  Splits ×{u.SplitCount}" : "");
+		var status = new List<string>();
+		if (best.Slowed) status.Add("Slowed");
+		if (best.Burning) status.Add("Burning");
+		if (best.Vulnerable) status.Add("Vulnerable");
+		_creepStatus.Text = string.Join("  ·  ", status);
+		_creepStatus.Visible = status.Count > 0;
+
+		// Beside the cursor, kept on screen.
+		_creepCard.Visible = true;
+		_creepCard.Size = _creepCard.GetCombinedMinimumSize();
+		var screen = GetViewport().GetVisibleRect().Size;
+		var pos = mouse + new Vector2(20, 20);
+		if (pos.X + _creepCard.Size.X > screen.X - 8) pos.X = mouse.X - _creepCard.Size.X - 20;
+		if (pos.Y + _creepCard.Size.Y > screen.Y - 8) pos.Y = mouse.Y - _creepCard.Size.Y - 20;
+		_creepCard.Position = pos;
 	}
 
 	// ================================================================== build hint

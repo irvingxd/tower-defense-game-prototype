@@ -78,6 +78,64 @@ public static class Catalog
 		_ => "All-rounder",
 	};
 
+	// Player-facing summary of what each tower is for (Buildings cards, tower card).
+	public static (string excels, string weak) Matchups(TowerDef d) => d.Id switch
+	{
+		"ballista" => ("Flyers, bosses one-on-one, fast creeps", "Armour (small hits), crowds without Splitting"),
+		"cannon" => ("Crowds & swarm packs, armoured creeps", "Lone bosses, spread-out fast creeps"),
+		"catapult" => ("Bosses & tanks, long range", "Flyers (until Scatter Shot), fast creeps"),
+		_ => ("", ""),
+	};
+
+	// ---------------------------------------------------------------- wave tags (Intel)
+
+	[Flags]
+	public enum WaveTag { None = 0, Boss = 1, Air = 2, Armoured = 4, Tanks = 8, Swarm = 16, Regen = 32, Fast = 64, Splits = 128 }
+
+	public static readonly WaveTag[] AllTags =
+		{ WaveTag.Boss, WaveTag.Air, WaveTag.Armoured, WaveTag.Tanks, WaveTag.Swarm, WaveTag.Regen, WaveTag.Fast, WaveTag.Splits };
+
+	public static WaveTag TagsOf(UnitDef u)
+	{
+		var t = WaveTag.None;
+		if (u.Role == Role.Boss) t |= WaveTag.Boss;
+		if (u.Flying) t |= WaveTag.Air;
+		if (IsArmoured(u)) t |= WaveTag.Armoured;
+		if (u.Role == Role.Tank) t |= WaveTag.Tanks;
+		if (u.Role == Role.Swarm) t |= WaveTag.Swarm;
+		if (u.Regen > 0) t |= WaveTag.Regen;
+		if (u.Speed >= 1.4f) t |= WaveTag.Fast;
+		if (u.SplitInto != null) t |= WaveTag.Splits;
+		return t;
+	}
+
+	// A wave shows a tag when that kind makes up a real part of it (any boss/splitter/regen; a quarter for the rest).
+	public static WaveTag TagsForWave(int wave)
+	{
+		var units = BaseWave(wave).Select(Unit).ToList();
+		var tags = WaveTag.None;
+		foreach (var tag in AllTags)
+		{
+			int n = units.Count(u => (TagsOf(u) & tag) != 0);
+			bool any = tag is WaveTag.Boss or WaveTag.Splits or WaveTag.Regen or WaveTag.Swarm;
+			if (n > 0 && (any || n * 4 >= units.Count)) tags |= tag;
+		}
+		return tags;
+	}
+
+	public static (string label, string counter) TagInfo(WaveTag tag) => tag switch
+	{
+		WaveTag.Boss => ("BOSS", "Catapult (×1.75 vs bosses), Heavy Boulders; Ballista one-on-one"),
+		WaveTag.Air => ("AIR", "Ballista; Cannon splash; Catapult only with Scatter Shot"),
+		WaveTag.Armoured => ("ARMOURED", "Cannon (×1.5 vs armoured) or big single hits — Ballista's small hits lose the most"),
+		WaveTag.Tanks => ("TANKS", "Catapult (×1.75 vs tanks)"),
+		WaveTag.Swarm => ("SWARM", "Cannon splash, Shrapnel — packs of three arrive bunched"),
+		WaveTag.Regen => ("REGEN", "Burst them down, or Incendiary Shells (burning stops regeneration)"),
+		WaveTag.Fast => ("FAST", "Ballista + Slowing Bolts; place towers early on the path"),
+		WaveTag.Splits => ("SPLITS", "Splash (Cannon/Catapult) catches the pieces"),
+		_ => ("", ""),
+	};
+
 	// Normal levels: +25% damage for 30% of what the tower cost so far. Milestones are proportional too:
 	// 4 -> 5 doubles damage and costs everything invested so far; 9 -> 10 triples it for twice that.
 	// So damage per gold stays flat — upgrades trade gold for board space, never for efficiency.
