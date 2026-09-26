@@ -49,17 +49,19 @@ branch B (L5) · B1 · B2 (L10). Numbers below are multipliers on the unbranched
 | ↳ **Barrage** | 10 | 5 boulders per volley | Swarms / flyers |
 | ↳ **Avalanche** | 10 | Boulders roll 2 tiles along the path after landing, hitting creeps behind | Long lines of creeps / sparse waves |
 
-## Crystal Tower (1,300g, late bloomer)
-Magic bolts that ignore half of armour and hit flyers, medium range. It starts weak (20 damage) but grows
-+35% per level instead of +25%, so it is the best scaler: behind the Ballista at level 1, ahead from level 9. The level-5 choice
+## Crystal Tower (1,300g, support)
+Magic bolts with a small splash (0.8 tiles) that ignore half of armour and hit flyers, medium range. Direct
+damage is low (10, +35% per level): the tower earns its place through its element, whose strength grows every
+level from 5 to 10. No build limit, but effects never stack (the strongest slow / scorch on a creep wins), so
+one or two Crystals per stretch of path is the sweet spot and a seventh adds almost nothing. The level-5 choice
 **attunes** it to an element; the crystal glows red or ice-blue.
 
 | Form | Level | Stats | Excels / Weak |
 |---|---|---|---|
-| **Fire** | 5 | Hits burn for 60% of the hit per second (3 s); burning stops regeneration | Regen, swarms, armour / fast creeps |
+| **Fire** | 5 | Hits burn (60% of the hit per second, 3 s) and **scorch**: +20% damage taken from all towers, growing to +40% at level 10 (shares the slot with Heavy Boulders; strongest wins). Burning stops regeneration | Supporting Cannons/Ballistas, regen / fast creeps |
 | ↳ **Inferno** | 10 | When a burning creep dies, the fire spreads to creeps within 1.2 tiles | Dense waves / lone bosses |
 | ↳ **Sunfire** | 10 | Focused beam: damage ramps +50% per second on the same target, up to ×3 | Bosses / swarms |
-| **Frost** | 5 | Hits slow 30% for 2 s (bosses half) | Fast creeps, flyers, supporting / raw damage |
+| **Frost** | 5 | Every creep in the splash slowed 25% for 2 s, growing to 45% at level 10 (bosses half) | Fast creeps, flyers, supporting / raw damage |
 | ↳ **Glacier** | 10 | Every 3rd hit freezes 1 s (bosses: 40% slow instead) | Packs, fast creeps / bosses |
 | ↳ **Blizzard** | 10 | 20% slow aura in range; chilled creeps take +10% damage from everything | Supporting other towers / alone |
 

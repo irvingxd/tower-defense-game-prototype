@@ -197,7 +197,10 @@ public partial class AiController : Node
 			/ (float)lane.PathCells.Count;
 
 		// Slows only matter on the stretch of path their towers cover: Slowing Bolts on ballistas, Frost crystals.
-		float frostSlow = Mathf.Min(0.6f, Catalog.FrostSlow * attune);
+		// Crystal effects don't stack: the best-levelled Frost / Fire crystal sets the strength.
+		int frostLevel = layout.Where(x => x.branch == "frost").Select(x => x.level).DefaultIfEmpty(0).Max();
+		int fireLevel = layout.Where(x => x.branch == "fire").Select(x => x.level).DefaultIfEmpty(0).Max();
+		float frostSlow = Mathf.Min(0.6f, Catalog.FrostSlowAt(frostLevel) * attune);
 		float slowFrac = (slow > 0 ? slow * Cover(x => x.def.Id == "ballista") : 0f)
 			+ frostSlow * Cover(x => x.branch == "frost");
 		slowFrac = Mathf.Min(slowFrac, 0.6f);
@@ -205,7 +208,9 @@ public partial class AiController : Node
 		float bossSpeed = t.BossSpeed * (1 - slowFrac * Catalog.BossEffect);
 		// Heavy Boulders: everything hit by a catapult takes more damage for a while — scale by how much
 		// of the path catapults cover (the debuff is up about 70% of the time there).
-		float amp = 1 + (vuln <= 0 ? 0 : vuln * Cover(x => x.def.Id == "catapult") * 0.7f);
+		// Fire's scorch is the same debuff (strongest wins); it lingers 2 s, so it also helps towers further on.
+		float amp = 1 + Mathf.Max(vuln <= 0 ? 0 : vuln * Cover(x => x.def.Id == "catapult") * 0.7f,
+			fireLevel == 0 ? 0 : Mathf.Min(1f, Catalog.ScorchAt(fireLevel) * attune * Cover(x => x.branch == "fire") * 1.3f));
 		// Splash is worth more against dense swarms (the benchmark: cannon best on Orc Warband).
 		float splashTargets = 1.5f + 1.2f * t.SwarmShare;
 
