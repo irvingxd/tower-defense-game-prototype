@@ -9,7 +9,8 @@ public sealed record TowerDef(
 	string Id, string Name, int Cost,
 	float Damage, float Range, float Cooldown, float Splash, bool HitsAir,
 	string Shape, char Variant, string Weapon, string Ammo,
-	float ProjectileSpeed, float Arc, string TopPiece = null, float ArmorIgnore = 0f);
+	float ProjectileSpeed, float Arc, string TopPiece = null, float ArmorIgnore = 0f,
+	float Growth = 1.25f); // damage per normal level (the Crystal starts weak and grows faster)
 
 // A level-5 (later also level-10) choice that changes how a tower works. Tint colours its crystal/weapon.
 public sealed record BranchDef(string Id, string TowerId, int Level, string Name, string Summary, Color Tint);
@@ -54,8 +55,8 @@ public static class Catalog
 		new("ballista", "Ballista", 1000, 28, 2.6f, 0.8f, 0f, true, "round", 'a', "weapon-ballista", "weapon-ammo-arrow", 10f, 0.15f),
 		new("cannon", "Cannon", 1400, 48, 3.0f, 1.3f, 1.0f, true, "square", 'b', "weapon-cannon", "weapon-ammo-cannonball", 7f, 0.5f),
 		new("catapult", "Catapult", 2000, 90, 3.8f, 2.6f, 1.3f, false, "round", 'c', "weapon-catapult", "weapon-ammo-boulder", 5f, 1.6f),
-		new("crystal", "Crystal Tower", 1300, 28, 2.8f, 0.6f, 0f, true, "round", 'b', "", "", 11f, 0.1f,
-			TopPiece: "tower-round-crystals", ArmorIgnore: 0.5f),
+		new("crystal", "Crystal Tower", 1300, 20, 2.8f, 0.6f, 0f, true, "round", 'b', "", "", 11f, 0.1f,
+			TopPiece: "tower-round-crystals", ArmorIgnore: 0.5f, Growth: 1.35f),
 	};
 
 	// Ten levels. Each adds +25% damage and a little attack speed; levels 5 and 10 are milestones
@@ -79,7 +80,7 @@ public static class Catalog
 	public static string RoleText(TowerDef d) => d.Id switch
 	{
 		"catapult" => $"×{SiegeBonus} vs bosses & tanks",
-		"crystal" => "Ignores half of armour · Fire or Frost at level 5",
+		"crystal" => "Late bloomer: +35% damage per level · ignores half of armour · Fire or Frost at level 5",
 		"cannon" => $"×{ArmourBonus} vs armoured",
 		_ => "All-rounder",
 	};
@@ -90,7 +91,7 @@ public static class Catalog
 		"ballista" => ("Flyers, bosses one-on-one, fast creeps", "Armour (small hits), crowds without Splitting"),
 		"cannon" => ("Crowds & swarm packs, armoured creeps", "Lone bosses, spread-out fast creeps"),
 		"catapult" => ("Bosses & tanks, long range", "Flyers (until Scatter Shot), fast creeps"),
-		"crystal" => ("Fire: regen & armour (burn). Frost: fast creeps & flyers (slow)", "Raw damage — weak until attuned at level 5"),
+		"crystal" => ("Fire: regen & armour (burn). Frost: fast creeps & flyers (slow)", "Early waves — starts weak, grows faster than any other tower"),
 		_ => ("", ""),
 	};
 
@@ -143,16 +144,17 @@ public static class Catalog
 		_ => ("", ""),
 	};
 
-	// Normal levels: +25% damage for 30% of what the tower cost so far. Milestones are proportional too:
-	// 4 -> 5 doubles damage and costs everything invested so far; 9 -> 10 triples it for twice that.
-	// So damage per gold stays flat — upgrades trade gold for board space, never for efficiency.
-	static float DamageStep(int toLevel) => toLevel == 5 ? 2f : toLevel == 10 ? 3f : 1.25f;
-	static float CostStep(int toLevel) => toLevel == 5 ? 1f : toLevel == 10 ? 2f : 0.3f;
+	// Normal levels: +25% damage (the tower's Growth) for 30% of what the tower cost so far.
+	// Milestones pay more than they cost: 4 -> 5 doubles damage for +70% of the investment, and
+	// 9 -> 10 triples it for +160%. So damage per gold climbs at each milestone, and saving up for
+	// level 10 beats spreading the same gold over new towers.
+	static float DamageStep(TowerDef d, int toLevel) => toLevel == 5 ? 2f : toLevel == 10 ? 3f : d.Growth;
+	static float CostStep(int toLevel) => toLevel == 5 ? 0.7f : toLevel == 10 ? 1.6f : 0.3f;
 
 	public static float Damage(TowerDef d, int level)
 	{
 		float m = 1f;
-		for (int l = 2; l <= level; l++) m *= DamageStep(l);
+		for (int l = 2; l <= level; l++) m *= DamageStep(d, l);
 		return d.Damage * m;
 	}
 
@@ -183,13 +185,11 @@ public static class Catalog
 	public static BranchDef Branch(string id) => id == null ? null : BranchById.GetValueOrDefault(id);
 	// Choices offered when upgrading this tower TO the given level (empty = a plain upgrade).
 	public static BranchDef[] BranchesFor(TowerDef d, int toLevel) => Branches.Where(b => b.TowerId == d.Id && b.Level == toLevel).ToArray();
-	public static float MilestoneDamage(int toLevel) => DamageStep(toLevel);
+	public static float MilestoneDamage(int toLevel) => toLevel == 10 ? 3f : 2f;
 	public static float Range(TowerDef d, int level) =>
 		d.Range + 0.08f * (level - 1) + (level >= 5 ? 0.3f : 0f) + (level >= 10 ? 0.3f : 0f);
 	public static float Cooldown(TowerDef d, int level) => d.Cooldown * Mathf.Pow(0.96f, level - 1);
 	public static float Dps(TowerDef d, int level) => Damage(d, level) / Cooldown(d, level);
-	// Cost to go from `level` to level + 1: half the tower's price, growing 30% per level, rounded to 5g
-	// (1 -> 2 costs 0.5x, 9 -> 10 about 4x; a max tower is ~17x the base price for ~11x the dps).
 	public static int UpgradeCost(TowerDef d, int level) => TotalCost(d, level + 1) - TotalCost(d, level);
 	public static int VisualTier(int level) => level >= 10 ? 2 : level >= 5 ? 1 : 0;
 
