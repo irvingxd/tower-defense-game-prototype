@@ -96,9 +96,10 @@ public partial class InputController : Node3D
 		if (Selected is { } t) SetTargeting((TargetMode)(((int)t.Targeting + 1) % System.Enum.GetValues<TargetMode>().Length));
 	}
 
-	public void UpgradeSelected()
+	// branch: which form to take when the next level is a choice (the tower card offers the buttons).
+	public void UpgradeSelected(string branch = null)
 	{
-		if (SelectedCell is { } c) Match.Submit(Player, new UpgradeTower(c));
+		if (SelectedCell is { } c) Match.Submit(Player, new UpgradeTower(c, branch));
 	}
 
 	public void SellSelected()
@@ -133,6 +134,7 @@ public partial class InputController : Node3D
 				case Key.Key1: SelectBuild(Catalog.Towers[0].Id); break;
 				case Key.Key2: SelectBuild(Catalog.Towers[1].Id); break;
 				case Key.Key3: SelectBuild(Catalog.Towers[2].Id); break;
+				case Key.Key4: SelectBuild(Catalog.Towers[3].Id); break;
 				case Key.U: UpgradeSelected(); break;
 				case Key.G: CycleTargeting(); break;
 				case Key.Delete: case Key.Backspace: SellSelected(); break;
