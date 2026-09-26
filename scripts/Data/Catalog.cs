@@ -49,8 +49,8 @@ public static class Catalog
 	public static readonly TowerDef[] Towers =
 	{
 		new("ballista", "Ballista", 1000, 28, 2.6f, 0.8f, 0f, true, "round", 'a', "weapon-ballista", "weapon-ammo-arrow", 10f, 0.15f),
-		new("cannon", "Cannon", 1700, 48, 2.3f, 1.3f, 0.9f, true, "square", 'b', "weapon-cannon", "weapon-ammo-cannonball", 7f, 0.5f),
-		new("catapult", "Catapult", 2600, 90, 3.8f, 2.6f, 1.3f, false, "round", 'c', "weapon-catapult", "weapon-ammo-boulder", 5f, 1.6f),
+		new("cannon", "Cannon", 1400, 48, 2.3f, 1.3f, 0.9f, true, "square", 'b', "weapon-cannon", "weapon-ammo-cannonball", 7f, 0.5f),
+		new("catapult", "Catapult", 2000, 90, 3.8f, 2.6f, 1.3f, false, "round", 'c', "weapon-catapult", "weapon-ammo-boulder", 5f, 1.6f),
 	};
 
 	// Ten levels. Each adds +25% damage and a little attack speed; levels 5 and 10 are milestones
