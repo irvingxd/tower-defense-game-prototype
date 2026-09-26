@@ -9,6 +9,7 @@ public static class Models
 
 	public static Node3D Td(string name) => Load($"res://assets/td/{name}.glb");
 	public static Node3D Graveyard(string name) => Load($"res://assets/graveyard/{name}.glb");
+	public static Node3D Castle(string name) => Load($"res://assets/castle/{name}.glb");
 	public static Node3D Monster(string name)
 	{
 		var model = Load($"res://assets/monsters/{name}.glb");
