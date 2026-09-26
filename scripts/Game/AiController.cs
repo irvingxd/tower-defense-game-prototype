@@ -60,7 +60,7 @@ public partial class AiController : Node
 	// What the lane must handle: the whole stream, and its single toughest creep passing every tower.
 	sealed class Threat
 	{
-		public float StreamHp, StreamSpeed, StreamArmor, AirShare, SwarmShare;
+		public float StreamHp, StreamSpeed, StreamArmor, AirShare, SwarmShare, ArmouredShare, SiegeShare;
 		public float BossHp, BossSpeed, BossArmor;
 		public bool BossFlying;
 	}
@@ -73,7 +73,7 @@ public partial class AiController : Node
 	Threat Assess()
 	{
 		var t = AssessWave(Match.Wave, Match.IncomingUnits(Player).ToList());
-		float air = 0, armor = 0, speed = 0, swarm = 0, weights = 0;
+		float air = 0, armor = 0, speed = 0, swarm = 0, armoured = 0, siege = 0, weights = 0;
 		for (int i = 0; i < LookAheadWeights.Length; i++)
 		{
 			int w = Match.Wave + i;
@@ -84,6 +84,8 @@ public partial class AiController : Node
 			armor += profile.StreamArmor * k;
 			speed += profile.StreamSpeed * k;
 			swarm += profile.SwarmShare * k;
+			armoured += profile.ArmouredShare * k;
+			siege += profile.SiegeShare * k;
 			weights += k;
 			if (i > 0 && i <= 2 && Catalog.IsBossWave(w))
 			{
@@ -101,6 +103,8 @@ public partial class AiController : Node
 		t.StreamArmor = armor / weights;
 		t.StreamSpeed = speed / weights;
 		t.SwarmShare = swarm / weights;
+		t.ArmouredShare = armoured / weights;
+		t.SiegeShare = siege / weights;
 		return t;
 	}
 
@@ -118,6 +122,8 @@ public partial class AiController : Node
 			t.StreamArmor += u.Armor * armorMul * hp;
 			if (u.Flying) t.AirShare += hp;
 			if (u.Role == Role.Swarm) t.SwarmShare += 1;
+			if (Catalog.IsArmoured(u)) t.ArmouredShare += hp;
+			if (Catalog.IsSiegeTarget(u)) t.SiegeShare += hp;
 			if (boss == null || hp > Match.EffectiveHp(boss)) boss = u;
 		}
 		t.StreamHp = hpSum;
@@ -125,6 +131,8 @@ public partial class AiController : Node
 		t.StreamArmor /= hpSum;
 		t.AirShare /= hpSum;
 		t.SwarmShare /= units.Count;
+		t.ArmouredShare /= hpSum;
+		t.SiegeShare /= hpSum;
 		// Bosses arrive back to back, so the lane has to chew through all of them in one pass.
 		var bosses = units.Where(u => u.Role == Role.Boss).ToList();
 		if (bosses.Count == 0) bosses.Add(boss);
@@ -197,8 +205,12 @@ public partial class AiController : Node
 			bool ballista = def.Id == "ballista", cannon = def.Id == "cannon", catapult = def.Id == "catapult";
 			float airDamage = def.HitsAir ? 1f : catapult ? scatter : 0f;
 			float airFactor = 1f - t.AirShare * (1f - airDamage);
-			float streamDps = Dps(def, level, t.StreamArmor) * amp;
-			float bossDps = Dps(def, level, t.BossArmor) * amp;
+			// Role bonus on the share of the stream it applies to; bosses always count as siege targets.
+			float roleStream = cannon ? 1 + (Catalog.ArmourBonus - 1) * t.ArmouredShare
+				: catapult ? 1 + (Catalog.SiegeBonus - 1) * t.SiegeShare : 1f;
+			float roleBoss = catapult ? Catalog.SiegeBonus : 1f;
+			float streamDps = Dps(def, level, t.StreamArmor) * amp * roleStream;
+			float bossDps = Dps(def, level, t.BossArmor) * amp * roleBoss;
 			if (cannon && burn > 0)
 			{
 				// A refreshing burn is roughly `burn` x hit damage per second on everything it splashed.

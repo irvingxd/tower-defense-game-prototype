@@ -57,6 +57,27 @@ public static class Catalog
 	// that also extend range and change the building (see Tower.VisualTier).
 	public const int MaxTowerLevel = 10;
 
+	// Tower roles: the Ballista is the all-rounder (hits air, no bonus); the Catapult is the siege tower
+	// (bosses and tanks), the Cannon cracks armour. Multiplies the hit before armour.
+	public const float SiegeBonus = 1.75f, ArmourBonus = 1.5f;
+
+	public static bool IsArmoured(UnitDef u) => u.Armor >= 4 && u.Role != Role.Boss;
+	public static bool IsSiegeTarget(UnitDef u) => u.Role is Role.Boss or Role.Tank;
+
+	public static float RoleBonus(TowerDef d, UnitDef u) => d.Id switch
+	{
+		"catapult" when IsSiegeTarget(u) => SiegeBonus,
+		"cannon" when IsArmoured(u) => ArmourBonus,
+		_ => 1f,
+	};
+
+	public static string RoleText(TowerDef d) => d.Id switch
+	{
+		"catapult" => $"×{SiegeBonus} vs bosses & tanks",
+		"cannon" => $"×{ArmourBonus} vs armoured",
+		_ => "All-rounder",
+	};
+
 	// Normal levels: +25% damage for 30% of what the tower cost so far. Milestones are proportional too:
 	// 4 -> 5 doubles damage and costs everything invested so far; 9 -> 10 triples it for twice that.
 	// So damage per gold stays flat — upgrades trade gold for board space, never for efficiency.
