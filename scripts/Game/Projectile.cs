@@ -14,6 +14,9 @@ public partial class Projectile : Node3D
 	public Lane Lane;
 	public Enemy Target;
 	public float Slow, Burn, Vulnerable, SplashBonus, AirDamage; // AirDamage: ground-only towers vs flyers (Scatter Shot)
+	public float SlowDuration = Catalog.SlowDuration;
+	public float ArmorIgnore, ArmourBonusExtra; // Crystal bolts; Heavy Shells
+	public Color OrbColor = new(0.85f, 0.55f, 1f); // magic bolt colour when the tower has no ammo model
 	public int Bounces;
 	public TowerRecord Source; // damage/kill credit; outlives the tower if it is sold mid-flight
 	public bool IsBounce;
@@ -27,7 +30,7 @@ public partial class Projectile : Node3D
 		_start = Position;
 		_aim = AimPoint();
 		_duration = Mathf.Max(_start.DistanceTo(_aim) / Def.ProjectileSpeed, 0.08f);
-		_model = Models.Td(Def.Ammo);
+		_model = Def.Ammo != "" ? Models.Td(Def.Ammo) : MagicOrb(OrbColor);
 		AddChild(_model);
 	}
 
@@ -60,14 +63,37 @@ public partial class Projectile : Node3D
 		QueueFree();
 	}
 
+	// Glowing sphere for magic towers (no ammo model in the kit fits a crystal).
+	static Node3D MagicOrb(Color c)
+	{
+		var orb = new MeshInstance3D
+		{
+			Mesh = new SphereMesh { Radius = 0.09f, Height = 0.18f, RadialSegments = 12, Rings = 6 },
+			MaterialOverride = new StandardMaterial3D
+			{
+				AlbedoColor = c, EmissionEnabled = true, Emission = c, EmissionEnergyMultiplier = 2.5f,
+				ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+			},
+			CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+		};
+		var root = new Node3D();
+		root.AddChild(orb);
+		return root;
+	}
+
 	bool CanHit(Enemy e) => !e.Def.Flying || Def.HitsAir || AirDamage > 0;
 
 	void Hit(Enemy e, float damage)
 	{
 		if (e.Def.Flying && !Def.HitsAir) damage *= AirDamage;
-		if (!IsBounce) damage *= Catalog.RoleBonus(Def, e.Def);
-		e.TakeDamage(damage, Source, IsBounce);
-		if (Slow > 0) e.ApplySlow(Slow, Catalog.SlowDuration);
+		if (!IsBounce)
+		{
+			float role = Catalog.RoleBonus(Def, e.Def);
+			if (role > 1f && Def.Id == "cannon") role += ArmourBonusExtra;
+			damage *= role;
+		}
+		e.TakeDamage(damage, Source, IsBounce, ArmorIgnore);
+		if (Slow > 0) e.ApplySlow(Slow, SlowDuration);
 		if (Burn > 0) e.ApplyBurn(damage * Burn, Catalog.BurnDuration, Source);
 		if (Vulnerable > 0) e.ApplyVulnerable(Vulnerable, Catalog.VulnerableDuration);
 	}

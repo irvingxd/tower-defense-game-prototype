@@ -9,7 +9,10 @@ public sealed record TowerDef(
 	string Id, string Name, int Cost,
 	float Damage, float Range, float Cooldown, float Splash, bool HitsAir,
 	string Shape, char Variant, string Weapon, string Ammo,
-	float ProjectileSpeed, float Arc);
+	float ProjectileSpeed, float Arc, string TopPiece = null, float ArmorIgnore = 0f);
+
+// A level-5 (later also level-10) choice that changes how a tower works. Tint colours its crystal/weapon.
+public sealed record BranchDef(string Id, string TowerId, int Level, string Name, string Summary, Color Tint);
 
 public enum Role { Basic, Swarm, Fast, Tank, Armored, Flyer, Regen, Splitter, Boss }
 
@@ -51,6 +54,8 @@ public static class Catalog
 		new("ballista", "Ballista", 1000, 28, 2.6f, 0.8f, 0f, true, "round", 'a', "weapon-ballista", "weapon-ammo-arrow", 10f, 0.15f),
 		new("cannon", "Cannon", 1400, 48, 3.0f, 1.3f, 1.0f, true, "square", 'b', "weapon-cannon", "weapon-ammo-cannonball", 7f, 0.5f),
 		new("catapult", "Catapult", 2000, 90, 3.8f, 2.6f, 1.3f, false, "round", 'c', "weapon-catapult", "weapon-ammo-boulder", 5f, 1.6f),
+		new("crystal", "Crystal Tower", 1300, 28, 2.8f, 0.6f, 0f, true, "round", 'b', "", "", 11f, 0.1f,
+			TopPiece: "tower-round-crystals", ArmorIgnore: 0.5f),
 	};
 
 	// Ten levels. Each adds +25% damage and a little attack speed; levels 5 and 10 are milestones
@@ -74,6 +79,7 @@ public static class Catalog
 	public static string RoleText(TowerDef d) => d.Id switch
 	{
 		"catapult" => $"×{SiegeBonus} vs bosses & tanks",
+		"crystal" => "Ignores half of armour · Fire or Frost at level 5",
 		"cannon" => $"×{ArmourBonus} vs armoured",
 		_ => "All-rounder",
 	};
@@ -84,6 +90,7 @@ public static class Catalog
 		"ballista" => ("Flyers, bosses one-on-one, fast creeps", "Armour (small hits), crowds without Splitting"),
 		"cannon" => ("Crowds & swarm packs, armoured creeps", "Lone bosses, spread-out fast creeps"),
 		"catapult" => ("Bosses & tanks, long range", "Flyers (until Scatter Shot), fast creeps"),
+		"crystal" => ("Fire: regen & armour (burn). Frost: fast creeps & flyers (slow)", "Raw damage — weak until attuned at level 5"),
 		_ => ("", ""),
 	};
 
@@ -158,6 +165,24 @@ public static class Catalog
 	}
 
 	public static bool IsMilestone(int toLevel) => toLevel is 5 or 10;
+
+	public const float FireBurn = 0.6f;   // burn dps as a fraction of the hit
+	public const float FrostSlow = 0.35f;
+	public const float FrostSlowDuration = 2f;
+	public const float AttunementPerLevel = 0.2f; // element strength
+
+	public static readonly BranchDef[] Branches =
+	{
+		new("fire", "crystal", 5, "Fire", $"Hits burn for {FireBurn * 100:0}% of the hit per second (3 s). Burning stops regeneration and ignores armour.",
+			new Color(1.35f, 0.55f, 0.35f)),
+		new("frost", "crystal", 5, "Frost", $"Hits slow by {FrostSlow * 100:0}% for {FrostSlowDuration} s (bosses half).",
+			new Color(0.45f, 0.8f, 1.45f)),
+	};
+
+	static readonly Dictionary<string, BranchDef> BranchById = Branches.ToDictionary(b => b.Id);
+	public static BranchDef Branch(string id) => id == null ? null : BranchById.GetValueOrDefault(id);
+	// Choices offered when upgrading this tower TO the given level (empty = a plain upgrade).
+	public static BranchDef[] BranchesFor(TowerDef d, int toLevel) => Branches.Where(b => b.TowerId == d.Id && b.Level == toLevel).ToArray();
 	public static float MilestoneDamage(int toLevel) => DamageStep(toLevel);
 	public static float Range(TowerDef d, int level) =>
 		d.Range + 0.08f * (level - 1) + (level >= 5 ? 0.3f : 0f) + (level >= 10 ? 0.3f : 0f);
@@ -298,6 +323,7 @@ public static class Catalog
 	public const float SplitDamage = 0.33f, SplitRange = 1.3f;
 	public const float BurnPerLevel = 0.15f, BurnDuration = 3f; // burn dps as a fraction of the hit
 	public const float ShrapnelPerLevel = 0.15f;                 // cannon splash radius
+	public const float HeavyShellsPerLevel = 0.25f;              // cannon armour bonus
 	static readonly float[] Vulnerability = { 0f, 0.08f, 0.14f, 0.20f }; // extra damage taken from everything
 	public const float VulnerableDuration = 2f;
 	static readonly float[] ScatterAirDamage = { 0f, 0.40f, 0.55f, 0.70f }; // catapult damage vs flyers
@@ -315,14 +341,18 @@ public static class Catalog
 			l => $"Ballista hits slow by {SlowPerLevel * l * 100:0}% for {SlowDuration}s. Doesn't stack; bosses half."),
 		new("splitting", "Splitting Bolts", "Ballista", new[] { 1200, 2600, 5200 }, new[] { 5, 15, 30 }, null,
 			l => $"Bolts bounce to {l} more target{(l > 1 ? "s" : "")} for {SplitDamage * 100:0}% damage. Armour applies; bosses half."),
-		new("incendiary", "Incendiary Shells", "Cannon", new[] { 1200, 2600, 5200 }, new[] { 5, 15, 30 }, null,
-			l => $"Cannon hits burn for {BurnPerLevel * l * 100:0}% of hit damage per second ({BurnDuration}s). Ignores armour, stops regeneration."),
 		new("shrapnel", "Shrapnel", "Cannon", new[] { 1000, 2200, 4500 }, new[] { 5, 15, 30 }, null,
 			l => $"Cannon splash radius +{ShrapnelPerLevel * l * 100:0}%. Best against swarms."),
+		new("heavyshells", "Heavy Shells", "Cannon", new[] { 1200, 2600, 5200 }, new[] { 5, 15, 30 }, null,
+			l => $"Cannon's bonus vs armoured creeps rises to ×{ArmourBonus + HeavyShellsPerLevel * l:0.00}."),
 		new("boulders", "Heavy Boulders", "Catapult", new[] { 1200, 2600, 5200 }, new[] { 5, 15, 30 }, null,
 			l => $"Creeps hit by a catapult take +{Vulnerability[l] * 100:0}% damage from every tower for {VulnerableDuration}s. Works fully on bosses."),
 		new("scatter", "Scatter Shot", "Catapult", new[] { 1500, 3000, 6000 }, new[] { 10, 20, 30 }, null,
 			l => $"Catapults can hit flyers for {ScatterAirDamage[l] * 100:0}% damage."),
+		new("incendiary", "Incendiary", "Crystal", new[] { 1200, 2600, 5200 }, new[] { 5, 15, 30 }, null,
+			l => $"Crystal hits burn for +{BurnPerLevel * l * 100:0}% of the hit per second ({BurnDuration}s), on top of Fire. Ignores armour, stops regeneration."),
+		new("attunement", "Attunement", "Crystal", new[] { 1000, 2200, 4500 }, new[] { 5, 15, 30 }, null,
+			l => $"Element strength +{AttunementPerLevel * l * 100:0}%: Fire burns hotter, Frost slows harder."),
 		new("warchest", "War Chest", "Economy", new[] { 1500, 3500, 7000 }, new[] { 5, 15, 30 }, null,
 			l => $"Earn {WarChestRate[l] * 100:0}% interest on banked gold each wave (capped at 500 + 250 × wave)."),
 	};
