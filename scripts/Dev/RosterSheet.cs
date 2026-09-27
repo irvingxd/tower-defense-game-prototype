@@ -18,12 +18,29 @@ public static class RosterSheet
 
 	static Part Td(string m, PartMode mode = PartMode.Stack, float scale = 1, Vector3 offset = default, float rot = 0, TowerPalette pal = null) =>
 		new("td", m, mode, offset, rot, scale, null, pal ?? Blue);
-	static Part Top(string m, float scale = 1, float x = 0, float z = 0, float rot = 0, TowerPalette pal = null) =>
-		Td(m, PartMode.Top, scale, new Vector3(x, 0, z), rot, pal);
+	// pitch tilts the weapon's barrel up (anti-air and mortars aim at the sky).
+	static Part Top(string m, float scale = 1, float x = 0, float z = 0, float rot = 0, TowerPalette pal = null, float pitch = 0) =>
+		new("td", m, PartMode.Top, new Vector3(x, 0, z), rot, scale, null, pal ?? Blue, Pitch: pitch);
 	static Part Free(string m, float scale, float x, float z, float rot = 0, TowerPalette pal = null) =>
 		Td(m, PartMode.Free, scale, new Vector3(x, 0, z), rot, pal);
 	static Part Castle(string m, float scale = 1, float x = 0, float z = 0, float rot = 0, PartMode mode = PartMode.Top) =>
 		new("castle", m, mode, new Vector3(x, 0, z), rot, scale);
+	// n weapons spread evenly around the tower top, each facing outward (weapons face +Z by default).
+	static Part[] Ring(string model, int n, float radius, float scale, float startDeg = 0, float pitch = 0)
+	{
+		var parts = new Part[n];
+		for (int i = 0; i < n; i++)
+		{
+			float deg = startDeg + 360f * i / n, rad = Mathf.DegToRad(deg);
+			parts[i] = Top(model, scale, Mathf.Sin(rad) * radius, Mathf.Cos(rad) * radius, deg, pitch: pitch);
+		}
+		return parts;
+	}
+
+	// A cannon with a short, wide barrel pitched steeply up: reads as a mortar at a glance.
+	static Part Mortar(float scale, float x = 0) =>
+		new("td", "weapon-cannon", PartMode.Top, new Vector3(x, 0, 0), 0, scale, null, Blue, Pitch: 60, Barrel: new Vector3(1.4f, 1.4f, 0.7f));
+
 	static Entry E(string caption, string sub, params Part[] parts) => new(caption, new List<Part>(parts), sub);
 
 	// Round tower pieces with the given variant letters, bottom to top.
@@ -58,20 +75,18 @@ public static class RosterSheet
 		E("Sniper L10", "executes low-HP", With(Round("a", "a", "a", "b", "c"), Top("weapon-ballista", 1.55f),
 			Castle("flag-wide", 0.9f, 0.34f, 0.34f), Castle("flag-wide", 0.9f, -0.34f, 0.34f))),
 		E("Repeater L5", "2 bolts, fast", With(Round("a", "a", "a"), Top("weapon-ballista", 0.85f, -0.2f), Top("weapon-ballista", 0.85f, 0.2f))),
-		E("Repeater L10", "3 targets at once", With(Round("a", "b", "a", "b"), Top("weapon-ballista", 0.8f, 0, -0.2f),
-			Top("weapon-ballista", 0.8f, -0.2f, 0.15f, 120), Top("weapon-ballista", 0.8f, 0.2f, 0.15f, 240))),
-		E("Skyhunter L5", "x2 vs flyers", With(Round("b", "b", "a"), Top("weapon-turret", 1.2f))),
-		E("Skyhunter L10", "air splash, range", With(Round("b", "b", "a", "b"), Top("weapon-turret", 1.4f),
+		E("Repeater L10", "3 targets at once", With(Round("a", "b", "a", "b"), Ring("weapon-ballista", 3, 0.27f, 0.62f))),
+		E("Skyhunter L5", "x2 vs flyers", With(Round("b", "b", "a"), Top("weapon-turret", 1.2f, pitch: 30))),
+		E("Skyhunter L10", "air splash, range", With(Round("b", "b", "a", "b"), Top("weapon-turret", 1.4f, pitch: 30),
 			Castle("flag-pennant", 0.9f, -0.32f, 0.32f), Castle("flag-pennant", 0.9f, 0.32f, 0.32f))),
 
 		// ---------------------------------------------------------------- CANNON: splash (absorbs the catapult)
 		E("CANNON", "L1 · 1400g", With(Square("b", "b"), Top("weapon-cannon"))),
-		E("Mortar L5", "huge splash, ground", With(Square("c", "c"), Top("weapon-cannon", 1.5f))),
-		E("Mortar L10", "burning craters", With(Square("c", "c", "c"), Top("weapon-cannon", 1.9f),
+		E("Mortar L5", "huge splash, ground", With(Square("c", "c"), Mortar(1.5f))),
+		E("Mortar L10", "burning craters", With(Square("c", "c", "c"), Mortar(1.9f),
 			Free("detail-rocks-large", 0.8f, -0.45f, 0.35f), Free("detail-rocks", 0.8f, 0.45f, 0.4f))),
-		E("Flak L5", "splash vs air", With(Square("b", "b", "b"), Top("weapon-cannon", 0.9f, -0.18f), Top("weapon-cannon", 0.9f, 0.18f))),
-		E("Flak L10", "3 shells per volley", With(Square("b", "b", "a", "b"), Top("weapon-cannon", 0.9f, 0, -0.2f),
-			Top("weapon-cannon", 0.9f, -0.2f, 0.15f, 120), Top("weapon-cannon", 0.9f, 0.2f, 0.15f, 240))),
+		E("Flak L5", "splash vs air", With(Square("b", "b", "b"), Top("weapon-cannon", 0.9f, -0.18f, pitch: 30), Top("weapon-cannon", 0.9f, 0.18f, pitch: 30))),
+		E("Flak L10", "3 shells per volley", With(Square("b", "b", "a", "b"), Ring("weapon-cannon", 3, 0.27f, 0.7f, pitch: 35))),
 		E("Siege L5", "x2 vs bosses, tanks", With(Square("b", "b"), Top("weapon-catapult", 1.4f))),
 		E("Siege L10", "% max-HP boulders", With([Td("tower-square-bottom-b"), Td("tower-square-middle-a")], Castle("siege-trebuchet", 0.62f),
 			Castle("flag-wide", 1f, 0.4f, 0.4f))),
@@ -95,25 +110,21 @@ public static class RosterSheet
 		E("Sniper A", "as in roster", With(Round("a", "a", "a", "b", "c"), Top("weapon-ballista", 1.55f), Castle("flag-wide", 0.9f, 0.34f, 0.34f))),
 		E("Sniper B", "slim spire", With(Round("a", "a", "a", "b", "a", "c"), Top("weapon-ballista", 1.3f))),
 		E("Sniper C", "siege ballista", With([Td("tower-round-bottom-a"), Td("tower-round-middle-a")], Castle("siege-ballista", 0.7f))),
-		E("Repeater A", "as in roster", With(Round("a", "b", "a", "b"), Top("weapon-ballista", 0.8f, 0, -0.2f),
-			Top("weapon-ballista", 0.8f, -0.2f, 0.15f, 120), Top("weapon-ballista", 0.8f, 0.2f, 0.15f, 240))),
+		E("Repeater A", "as in roster", With(Round("a", "b", "a", "b"), Ring("weapon-ballista", 3, 0.27f, 0.62f))),
 		E("Repeater B", "square body", With(Square("a", "a", "a", "b"), Top("weapon-ballista", 0.85f, -0.2f), Top("weapon-ballista", 0.85f, 0.2f))),
-		E("Repeater C", "four-way", With(Round("a", "a", "a", "b"), Top("weapon-ballista", 0.65f, -0.18f, -0.18f), Top("weapon-ballista", 0.65f, 0.18f, -0.18f, 90),
-			Top("weapon-ballista", 0.65f, -0.18f, 0.18f, 270), Top("weapon-ballista", 0.65f, 0.18f, 0.18f, 180))),
-		E("Skyhunter A", "as in roster", With(Round("b", "b", "a", "b"), Top("weapon-turret", 1.4f), Castle("flag-pennant", 0.9f, 0.32f, 0.32f))),
-		E("Skyhunter B", "scaffold mast", With([Td("tower-round-base"), Td("wood-structure-high", PartMode.Stack, 0.75f)], Top("weapon-turret", 1.3f))),
-		E("Skyhunter C", "twin turrets", With(Round("b", "b", "a", "b"), Top("weapon-turret", 1f, -0.2f), Top("weapon-turret", 1f, 0.2f))),
+		E("Repeater C", "four-way", With(Round("a", "a", "a", "b"), Ring("weapon-ballista", 4, 0.28f, 0.5f, 45))),
+		E("Skyhunter A", "as in roster", With(Round("b", "b", "a", "b"), Top("weapon-turret", 1.4f, pitch: 30), Castle("flag-pennant", 0.9f, 0.32f, 0.32f))),
+		E("Skyhunter B", "scaffold mast", With([Td("tower-round-base"), Td("wood-structure-high", PartMode.Stack, 0.75f)], Top("weapon-turret", 1.3f, pitch: 30))),
+		E("Skyhunter C", "twin turrets", With(Round("b", "b", "a", "b"), Top("weapon-turret", 1f, -0.2f, pitch: 30), Top("weapon-turret", 1f, 0.2f, pitch: 30))),
 
-		E("Mortar A", "as in roster", With(Square("c", "c", "c"), Top("weapon-cannon", 1.9f), Free("detail-rocks-large", 0.8f, -0.45f, 0.35f))),
-		E("Mortar B", "squat bunker", With([Td("tower-round-base")], Top("weapon-cannon", 2.1f), Free("weapon-ammo-cannonball", 2f, 0.45f, 0.4f),
+		E("Mortar A", "as in roster", With(Square("c", "c", "c"), Mortar(1.9f), Free("detail-rocks-large", 0.8f, -0.45f, 0.35f))),
+		E("Mortar B", "squat bunker", With([Td("tower-round-base")], Mortar(2.1f), Free("weapon-ammo-cannonball", 2f, 0.45f, 0.4f),
 			Free("weapon-ammo-cannonball", 2f, 0.3f, 0.52f))),
-		E("Mortar C", "tall battery", With(Square("c", "c", "b", "c"), Top("weapon-cannon", 1.6f))),
-		E("Flak A", "as in roster", With(Square("b", "b", "a", "b"), Top("weapon-cannon", 0.9f, 0, -0.2f),
-			Top("weapon-cannon", 0.9f, -0.2f, 0.15f, 120), Top("weapon-cannon", 0.9f, 0.2f, 0.15f, 240))),
-		E("Flak B", "turret + pennants", With(Square("b", "b", "a", "b"), Top("weapon-turret", 1.4f),
+		E("Mortar C", "twin tubes", With(Square("c", "c", "b", "c"), Mortar(1.2f, -0.2f), Mortar(1.2f, 0.2f))),
+		E("Flak A", "as in roster", With(Square("b", "b", "a", "b"), Ring("weapon-cannon", 3, 0.27f, 0.7f, pitch: 35))),
+		E("Flak B", "turret + pennants", With(Square("b", "b", "a", "b"), Top("weapon-turret", 1.4f, pitch: 30),
 			Castle("flag-pennant", 0.9f, 0.34f, 0.34f), Castle("flag-pennant", 0.9f, -0.34f, 0.34f))),
-		E("Flak C", "four-way", With(Square("b", "b", "a", "b"), Top("weapon-cannon", 0.7f, -0.18f, -0.18f), Top("weapon-cannon", 0.7f, 0.18f, -0.18f, 90),
-			Top("weapon-cannon", 0.7f, -0.18f, 0.18f, 270), Top("weapon-cannon", 0.7f, 0.18f, 0.18f, 180))),
+		E("Flak C", "four-way", With(Square("b", "b", "a", "b"), Ring("weapon-cannon", 4, 0.28f, 0.55f, 45, 35))),
 		E("Siege A", "as in roster", With([Td("tower-square-bottom-b"), Td("tower-square-middle-a")], Castle("siege-trebuchet", 0.62f))),
 		E("Siege B", "scaffold trebuchet", With([Td("wood-structure-high", PartMode.Stack, 0.8f)], Castle("siege-trebuchet", 0.72f))),
 		E("Siege C", "big catapult", With(Square("b", "c", "c"), Top("weapon-catapult", 1.7f), Free("weapon-ammo-boulder", 1.6f, -0.45f, 0.4f),

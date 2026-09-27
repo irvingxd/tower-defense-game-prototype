@@ -26,7 +26,8 @@ public partial class SheetRenderer : Node3D
 	public enum PartMode { Stack, Top, Free }
 
 	// One cell: a caption and the parts to stack/place, each (source, model, mode, offset, rotation Y, scale, tint).
-	public sealed record Part(string Kit, string Model, PartMode Mode = PartMode.Stack, Vector3 Offset = default, float RotY = 0, float Scale = 1, Color? Tint = null, TowerPalette Palette = null);
+	public sealed record Part(string Kit, string Model, PartMode Mode = PartMode.Stack, Vector3 Offset = default, float RotY = 0, float Scale = 1, Color? Tint = null, TowerPalette Palette = null,
+		float Pitch = 0, Vector3? Barrel = null);
 	public sealed record Entry(string Caption, List<Part> Parts, string Sub = "");
 
 	public override async void _Ready()
@@ -107,6 +108,12 @@ public partial class SheetRenderer : Node3D
 		n.RotationDegrees = new Vector3(0, p.RotY, 0);
 		n.Scale = Vector3.One * p.Scale;
 		p.Palette?.Apply(n);
+		// Weapons keep their moving part in a child node (barrel / arrow / turret barrel) pivoting on the mount.
+		if ((p.Pitch != 0 || p.Barrel != null) && n.FindChild("barrel", true, false) is Node3D barrel)
+		{
+			barrel.RotationDegrees = new Vector3(-p.Pitch, 0, 0);
+			if (p.Barrel is { } b) barrel.Scale = b;
+		}
 		if (p.Tint is { } tint) TintAll(n, tint);
 		return n;
 	}
