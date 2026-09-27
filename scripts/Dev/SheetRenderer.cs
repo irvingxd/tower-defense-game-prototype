@@ -5,7 +5,7 @@ using TowerDefense.Game;
 
 namespace TowerDefense.Dev;
 
-// `-- --sheet <parts|branches|concepts|palettes> <out.png>`: renders a labelled grid of models (a parts catalogue, or the
+// `-- --sheet <parts|branches|concepts|palettes|roster|variants> <out.png>`: renders a labelled grid of models (a parts catalogue, or the
 // proposed tower-branch looks) to a PNG and quits. Design tool only; nothing in the game uses it.
 public partial class SheetRenderer : Node3D
 {
@@ -36,11 +36,13 @@ public partial class SheetRenderer : Node3D
 			"branches" => BranchSheet.Entries(),
 			"concepts" => ConceptSheet.Concepts(),
 			"palettes" => ConceptSheet.Palettes(),
+			"roster" => RosterSheet.Roster(),
+			"variants" => RosterSheet.Variants(),
 			_ => PartsCatalogue(),
 		};
 		// Everything but the parts catalogue uses the tilted, billboard-labelled layout.
 		bool branches = _mode != "parts";
-		int cols = _mode switch { "branches" => 8, "concepts" => 6, "palettes" => TowerPalette.All.Length, _ => 9 };
+		int cols = _mode switch { "branches" => 8, "concepts" => 6, "palettes" => TowerPalette.All.Length, "roster" => 7, "variants" => 9, _ => 9 };
 		float rowSpacing = branches ? 8.5f : Spacing * 1.25f, pitch = branches ? 25f : 49f;
 		for (int i = 0; i < entries.Count; i++)
 		{
