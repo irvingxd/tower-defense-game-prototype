@@ -118,6 +118,7 @@ public partial class Lane : Node3D
 		AddChild(crypt);
 
 		var keep = Tower.Stack("tower-square-bottom-a", "tower-square-middle-a", "tower-square-roof-a");
+		TowerPalette.ForPlayer(Index).Apply(keep);
 		keep.Position = CellCenter(PathCells[^1] + new Vector2I(0, 1), 0f);
 		keep.Scale = Vector3.One * 1.2f;
 		AddChild(keep);

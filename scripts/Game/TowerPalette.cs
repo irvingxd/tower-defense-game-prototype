@@ -25,6 +25,16 @@ public sealed record TowerPalette(string Name, Color? Stone = null, Color? Accen
 		new("Necro", Stone: new(0.33f, 0.3f, 0.4f), Accent: new(0.55f, 0.95f, 0.2f), Wood: new(0.3f, 0.3f, 0.25f), Gem: new(0.6f, 1f, 0.25f)),
 	};
 
+	// Lane colours so you can tell whose tower is whose: player 0 (you) blue, player 1 (AI) orange.
+	// Gem stays untouched so the crystal's Fire/Frost glow reads the same on both sides.
+	public static readonly TowerPalette[] Teams =
+	{
+		new("Team Blue", Stone: new(0.93f, 0.9f, 0.82f), Accent: new(0.22f, 0.4f, 0.9f), Wood: new(0.95f, 0.75f, 0.25f)),
+		new("Team Orange", Stone: new(0.62f, 0.58f, 0.58f), Accent: new(1f, 0.45f, 0.1f), Wood: new(0.45f, 0.3f, 0.22f)),
+	};
+
+	public static TowerPalette ForPlayer(int index) => Teams[index % Teams.Length];
+
 	const int SwatchW = 32, SwatchH = 128;
 
 	static Image _source;

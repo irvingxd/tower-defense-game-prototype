@@ -33,6 +33,8 @@ public partial class Tower : Node3D
 	// Preview towers (icon baking, build ghost) are visual only: no lane, no shooting, no label.
 	public bool Preview;
 	public int PreviewLevel = 1;
+	// Lane colour; previews without a lane keep the kit's own colours unless one is set.
+	public TowerPalette Palette;
 
 	Node3D _body, _weapon;
 	float _cooldown, _muzzleY;
@@ -40,6 +42,7 @@ public partial class Tower : Node3D
 	public override void _Ready()
 	{
 		Invested = Def.Cost;
+		Palette ??= Lane != null ? TowerPalette.ForPlayer(Lane.Index) : TowerPalette.Classic;
 		Record.Def ??= Def;
 		Record.Cell = Cell;
 		if (Preview)
@@ -66,6 +69,7 @@ public partial class Tower : Node3D
 		for (int i = 0; i < tier; i++) pieces[i + 1] = $"tower-{Def.Shape}-middle-{MiddleVariants[i % 3]}";
 		pieces[^1] = Def.TopPiece ?? $"tower-{Def.Shape}-top-{Def.Variant}";
 		_body = Stack(pieces);
+		Palette.Apply(_body);
 		AddChild(_body);
 		// Branch colour on the top piece (the crystal glows red for Fire, ice-blue for Frost).
 		if (BranchDef is { } branch) Tint(_body.GetChild<Node3D>(_body.GetChildCount() - 1), branch.Tint);
@@ -76,6 +80,7 @@ public partial class Tower : Node3D
 		if (Def.Weapon != "")
 		{
 			_weapon = Models.Td(Def.Weapon);
+			Palette.Apply(_weapon);
 			_weapon.Position = new Vector3(0, height - 0.05f, 0);
 			_weapon.Scale = Vector3.One * (1f + 0.15f * tier);
 			_weapon.Rotation = new Vector3(0, yaw, 0);
