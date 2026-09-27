@@ -5,7 +5,7 @@ using TowerDefense.Game;
 
 namespace TowerDefense.Dev;
 
-// `-- --sheet <parts|branches> <out.png>`: renders a labelled grid of models (a parts catalogue, or the
+// `-- --sheet <parts|branches|concepts|palettes> <out.png>`: renders a labelled grid of models (a parts catalogue, or the
 // proposed tower-branch looks) to a PNG and quits. Design tool only; nothing in the game uses it.
 public partial class SheetRenderer : Node3D
 {
@@ -26,14 +26,21 @@ public partial class SheetRenderer : Node3D
 	public enum PartMode { Stack, Top, Free }
 
 	// One cell: a caption and the parts to stack/place, each (source, model, mode, offset, rotation Y, scale, tint).
-	public sealed record Part(string Kit, string Model, PartMode Mode = PartMode.Stack, Vector3 Offset = default, float RotY = 0, float Scale = 1, Color? Tint = null);
+	public sealed record Part(string Kit, string Model, PartMode Mode = PartMode.Stack, Vector3 Offset = default, float RotY = 0, float Scale = 1, Color? Tint = null, TowerPalette Palette = null);
 	public sealed record Entry(string Caption, List<Part> Parts, string Sub = "");
 
 	public override async void _Ready()
 	{
-		var entries = _mode == "branches" ? BranchSheet.Entries() : PartsCatalogue();
-		bool branches = _mode == "branches";
-		int cols = branches ? 8 : 9;
+		var entries = _mode switch
+		{
+			"branches" => BranchSheet.Entries(),
+			"concepts" => ConceptSheet.Concepts(),
+			"palettes" => ConceptSheet.Palettes(),
+			_ => PartsCatalogue(),
+		};
+		// Everything but the parts catalogue uses the tilted, billboard-labelled layout.
+		bool branches = _mode != "parts";
+		int cols = _mode switch { "branches" => 8, "concepts" => 6, "palettes" => TowerPalette.All.Length, _ => 9 };
 		float rowSpacing = branches ? 8.5f : Spacing * 1.25f, pitch = branches ? 25f : 49f;
 		for (int i = 0; i < entries.Count; i++)
 		{
@@ -97,6 +104,7 @@ public partial class SheetRenderer : Node3D
 		n.Position = p.Offset;
 		n.RotationDegrees = new Vector3(0, p.RotY, 0);
 		n.Scale = Vector3.One * p.Scale;
+		p.Palette?.Apply(n);
 		if (p.Tint is { } tint) TintAll(n, tint);
 		return n;
 	}
